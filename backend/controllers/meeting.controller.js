@@ -41,6 +41,65 @@ exports.createMeeting = async (req, res) => {
       createdBy: req.userId // From JWT middleware
     });
 
+    // Send Email Notification
+    const nodemailer = require('nodemailer');
+    const transporter = nodemailer.createTransport({
+      service: 'Gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+
+    // Fetch department name
+    const department = await Department.findByPk(req.body.departmentId);
+
+    // Get recipients based on role & department
+    const recipients = await User.findAll({
+      where: {
+        roleId: roleId,
+        departmentId: req.body.departmentId,
+        ...(roleId === 1 ? { year: req.body.year } : {})
+      },
+      attributes: ['email']
+    });
+
+    const emailList = recipients.map(user => user.email).filter(Boolean); // array of emails
+
+    const mailOptions = {
+      from: `"Admin" <${process.env.EMAIL_USER}>`,
+      to: emailList.join(','), // Use the actual email list array, not the string "emailList"
+      subject: `📅🎯 New Meeting Scheduled: ${req.body.title}`,
+      html: `
+      <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee;">
+        <h2 style="color: #2e6c80;">📌 New Meeting Scheduled</h2>
+        <p>Hello ${roleId === 1 ? 'Students' : 'Staff'},</p>
+        <p>A new meeting has been scheduled for <strong>${department?.name || 'your department'}</strong>.</p>
+
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr><td><strong>📝 Title:</strong></td><td>${req.body.title}</td></tr>
+          <tr><td><strong>📄 Description:</strong></td><td>${req.body.description || 'N/A'}</td></tr>
+          <tr><td><strong>📆 Date:</strong></td><td>${req.body.meetingDate}</td></tr>
+          <tr><td><strong>🕐 Time:</strong></td><td>${req.body.startTime} - ${req.body.endTime}</td></tr>
+        </table>
+
+        <p>Please be on time.</p>
+        <br/>
+        <p>Thanks,<br/><strong>Admin Team</strong></p>
+      </div>
+      `
+    };
+
+    if (emailList.length > 0) {
+      try {
+        await transporter.sendMail(mailOptions);
+        console.log('Meeting email sent to:', emailList.join(', '));
+      } catch (emailError) {
+        console.error('Error sending email:', emailError);
+        // Continue with the response even if email fails
+      }
+    }
+
     // Return success response with created meeting data
     res.status(201).send({
       message: 'Meeting created successfully',
