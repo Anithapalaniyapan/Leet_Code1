@@ -52,4 +52,34 @@ router.get(
   feedbackController.getOverallFeedbackStats
 );
 
+// EXCEL REPORT ENDPOINTS
+
+// Generate Excel report for all feedback (academic director and executive director only)
+router.get(
+  '/excel/all',
+  [authJwt.verifyToken, authJwt.isAcademicDirectorOrExecutiveDirector],
+  feedbackController.generateAllFeedbackExcel
+);
+
+// Generate Excel report for department statistics (academic director and executive director only)
+router.get(
+  '/excel/department/:departmentId',
+  [authJwt.verifyToken, authJwt.isAcademicDirectorOrExecutiveDirector],
+  feedbackController.generateDepartmentStatsExcel
+);
+
+// Generate Excel report for overall statistics (academic director and executive director only)
+router.get(
+  '/excel/overall',
+  [authJwt.verifyToken, authJwt.isAcademicDirectorOrExecutiveDirector],
+  feedbackController.generateOverallStatsExcel
+);
+
+// Generate Excel report for individual role reports (academic director and executive director only)
+router.get(
+  '/excel/individual/:roleType',
+  [authJwt.verifyToken, authJwt.isAcademicDirectorOrExecutiveDirector],
+  feedbackController.generateIndividualReportExcel
+);
+
 module.exports = router;
