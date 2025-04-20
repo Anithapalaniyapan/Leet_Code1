@@ -1019,6 +1019,123 @@ const AcademicDirectorDashboard = () => {
     }
   };
 
+  // New function to export department statistics to Excel
+  const handleExportDepartmentStats = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setSnackbar({
+          open: true,
+          message: 'Please log in to continue',
+          severity: 'error'
+        });
+        return;
+      }
+
+      // Get department performance data
+      const departmentWiseScores = performanceSummary.departmentWiseScores || [];
+
+      // Call the API endpoint for department stats Excel export
+      const response = await API.post('/reports/department-stats-excel', 
+        { departmentWiseScores },
+        {
+          responseType: 'blob',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `department-stats-${new Date().toISOString().split('T')[0]}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      setSnackbar({
+        open: true,
+        message: 'Department statistics exported to Excel successfully',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error exporting department stats to Excel:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to export department statistics. Please try again.',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // New function to export overall summary to Excel
+  const handleExportOverallSummary = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setSnackbar({
+          open: true,
+          message: 'Please log in to continue',
+          severity: 'error'
+        });
+        return;
+      }
+
+      // Get overall summary data
+      const overallSummary = {
+        studentPerformance: performanceSummary.studentOverall || 0,
+        staffPerformance: performanceSummary.staffOverall || 0,
+        departmentWiseScores: performanceSummary.departmentWiseScores || [],
+        totalFeedbackCount: feedbackStats?.totalFeedback || 0,
+        averageRating: feedbackStats?.averageRating || 0,
+        timestamp: new Date().toISOString()
+      };
+
+      // Call the API endpoint for overall summary Excel export
+      const response = await API.post('/reports/overall-summary-excel', 
+        overallSummary,
+        {
+          responseType: 'blob',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `overall-summary-${new Date().toISOString().split('T')[0]}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      setSnackbar({
+        open: true,
+        message: 'Overall summary exported to Excel successfully',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error exporting overall summary to Excel:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to export overall summary. Please try again.',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Implement handleDeleteMeeting function
   const handleDeleteMeeting = (meetingId) => {
     // Check token before proceeding
@@ -1432,108 +1549,7 @@ const AcademicDirectorDashboard = () => {
     }
   };
 
-  // Render student performance chart
-  const renderStudentPerformanceChart = () => (
-    <Box sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3 }}>Student Performance %</Typography>
-      
-      <Box sx={{ height: '400px', bgcolor: '#f5f5f7', p: 3, borderRadius: 1 }}>
-        <Grid container spacing={2}>
-          {/* Y-axis labels */}
-          <Grid item xs={1}>
-            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <Typography>100</Typography>
-              <Typography>80</Typography>
-              <Typography>60</Typography>
-              <Typography>40</Typography>
-              <Typography>20</Typography>
-              <Typography>0</Typography>
-            </Box>
-          </Grid>
-          
-          {/* Chart bars */}
-          <Grid item xs={11}>
-            <Box sx={{ height: '300px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around' }}>
-              {studentQuestionPerformance.map((item) => (
-                <Box key={item.id} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '20%' }}>
-                  <Box 
-                    sx={{ 
-                      width: '80%', 
-                      height: `${item.score * 3}px`, 
-                      bgcolor: item.color,
-                      borderTopLeftRadius: 4,
-                      borderTopRightRadius: 4,
-                    }} 
-                  />
-                  <Typography sx={{ mt: 1 }}>{item.question}</Typography>
-                </Box>
-              ))}
-            </Box>
-            
-            {/* X-axis line */}
-            <Box sx={{ 
-              height: '1px', 
-              bgcolor: '#ddd', 
-              width: '100%', 
-              mt: 1 
-            }} />
-          </Grid>
-        </Grid>
-      </Box>
-    </Box>
-  );
-
-  // Render staff performance chart
-  const renderStaffPerformanceChart = () => (
-    <Box sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3 }}>Staff Performance %</Typography>
-      
-      <Box sx={{ height: '400px', bgcolor: '#f5f5f7', p: 3, borderRadius: 1 }}>
-        <Grid container spacing={2}>
-          {/* Y-axis labels */}
-          <Grid item xs={1}>
-            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <Typography>100</Typography>
-              <Typography>80</Typography>
-              <Typography>60</Typography>
-              <Typography>40</Typography>
-              <Typography>20</Typography>
-              <Typography>0</Typography>
-            </Box>
-          </Grid>
-          
-          {/* Chart bars */}
-          <Grid item xs={11}>
-            <Box sx={{ height: '300px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around' }}>
-              {staffQuestionPerformance.map((item) => (
-                <Box key={item.id} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '20%' }}>
-                  <Box 
-                    sx={{ 
-                      width: '80%', 
-                      height: `${item.score * 3}px`, 
-                      bgcolor: item.color,
-                      borderTopLeftRadius: 4,
-                      borderTopRightRadius: 4,
-                    }} 
-                  />
-                  <Typography sx={{ mt: 1 }}>{item.question}</Typography>
-                </Box>
-              ))}
-            </Box>
-            
-            {/* X-axis line */}
-            <Box sx={{ 
-              height: '1px', 
-              bgcolor: '#ddd', 
-              width: '100%', 
-              mt: 1 
-            }} />
-          </Grid>
-        </Grid>
-      </Box>
-    </Box>
-  );
-
+  // Render meeting management section
   const renderMeetingManagement = () => {
     console.log('Rendering meeting management component');
     return (
@@ -1656,18 +1672,73 @@ const AcademicDirectorDashboard = () => {
         
         <Grid container spacing={3}>
           <Grid item xs={12}>
-            <Paper sx={{ p: 2 }}>
+            <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
-                Generate Feedback Report
-          </Typography>
-          <Button
-                variant="contained"
-                color="primary"
-                onClick={handleDownloadReport}
-                startIcon={<DownloadIcon />}
-              >
-                Download Report
-          </Button>
+                Generate Feedback Reports
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={4}>
+                  <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                    <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+                      Standard PDF Report
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 2 }}>
+                      Download a comprehensive PDF report with all feedback data and analytics.
+                    </Typography>
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      color="primary"
+                      onClick={handleDownloadReport}
+                      startIcon={<DownloadIcon />}
+                    >
+                      Download PDF Report
+                    </Button>
+                  </Box>
+                </Grid>
+                
+                <Grid item xs={12} md={4}>
+                  <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                    <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+                      Department Statistics (Excel)
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 2 }}>
+                      Export department-by-department performance statistics in Excel format.
+                    </Typography>
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      color="secondary"
+                      onClick={handleExportDepartmentStats}
+                      startIcon={<DownloadIcon />}
+                      disabled={loading}
+                    >
+                      Export Department Stats
+                    </Button>
+                  </Box>
+                </Grid>
+                
+                <Grid item xs={12} md={4}>
+                  <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                    <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+                      Overall Summary (Excel)
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 2 }}>
+                      Export overall feedback statistics and trends in Excel format.
+                    </Typography>
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      color="success"
+                      onClick={handleExportOverallSummary}
+                      startIcon={<DownloadIcon />}
+                      disabled={loading}
+                    >
+                      Export Overall Summary
+                    </Button>
+                  </Box>
+                </Grid>
+              </Grid>
             </Paper>
           </Grid>
         </Grid>
@@ -1964,10 +2035,6 @@ const AcademicDirectorDashboard = () => {
           </Card>
         </Grid>
         
-        <Grid item xs={12}>
-          {renderStudentPerformanceChart()}
-        </Grid>
-        
         {/* Staff Performance Section */}
         <Grid item xs={12}>
           <Typography variant="h6" sx={{ mt: 2, mb: 2, fontWeight: 'bold' }}>Staff Performance Analytics</Typography>
@@ -1984,10 +2051,6 @@ const AcademicDirectorDashboard = () => {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-        
-        <Grid item xs={12}>
-          {renderStaffPerformanceChart()}
         </Grid>
         
         {/* Department Wise Section */}

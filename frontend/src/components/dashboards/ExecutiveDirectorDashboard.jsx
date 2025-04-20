@@ -721,7 +721,7 @@ const ExecutiveDirectorDashboard = () => {
           <StarBorderIcon key={`empty-${i}`} sx={{ color: '#FFC107' }} />
         ))}
         <Typography variant="body2" sx={{ ml: 1 }}>({rating.toFixed(1)})</Typography>
-      </Box>
+            </Box>
     );
   };
 
@@ -764,7 +764,7 @@ const ExecutiveDirectorDashboard = () => {
             stroke="#f0f0f0" 
             strokeWidth="20" 
           />
-        </Box>
+                </Box>
         
         {/* Pie segments */}
         <Box 
@@ -785,15 +785,15 @@ const ExecutiveDirectorDashboard = () => {
               strokeDashoffset={item.dashOffset}
               style={{ transition: 'all 0.5s ease-in-out' }}
             />
-          ))}
-        </Box>
-        
+              ))}
+            </Box>
+            
         {/* Center text */}
-        <Box sx={{ 
+            <Box sx={{ 
           position: 'absolute', 
           top: 0, 
           left: 0, 
-          width: '100%', 
+              width: '100%', 
           height: '100%', 
           display: 'flex', 
           flexDirection: 'column',
@@ -1069,7 +1069,7 @@ const ExecutiveDirectorDashboard = () => {
                   )
                 ))}
               </Box>
-            </Grid>
+          </Grid>
             <Grid item xs={12} md={6} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
               {dept.responses > 0 ? (
                 <Box sx={{ position: 'relative', height: 120, width: 120 }}>
@@ -1099,7 +1099,7 @@ const ExecutiveDirectorDashboard = () => {
                   No data available
                 </Typography>
               )}
-            </Grid>
+        </Grid>
           </Grid>
         </CardContent>
       </Card>
@@ -1135,8 +1135,8 @@ const ExecutiveDirectorDashboard = () => {
               )}
               <Box sx={{ mt: 2 }}>
                 {renderStarRating(parseFloat(feedbackStats.overallAverageRating))}
-              </Box>
-            </Box>
+      </Box>
+    </Box>
           </Card>
         </Grid>
         
@@ -1211,7 +1211,7 @@ const ExecutiveDirectorDashboard = () => {
           </Box>
         ) : (
           <Box sx={{ height: 400, position: 'relative' }}>
-            {/* Y-axis labels */}
+          {/* Y-axis labels */}
             <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 40, width: 40, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end', pr: 1 }}>
               <Typography variant="body2">5.0</Typography>
               <Typography variant="body2">4.0</Typography>
@@ -1241,14 +1241,14 @@ const ExecutiveDirectorDashboard = () => {
                 
                 return (
                   <Box key={dept.departmentId} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: `${100 / departmentsWithData.length}%` }}>
-                    <Box 
-                      sx={{ 
+                  <Box 
+                    sx={{ 
                         width: '70%', 
                         height: `${(rating / 5) * 100}%`, 
                         bgcolor: ratingColor,
                         transition: 'height 0.5s ease-in-out, transform 0.2s ease-in-out',
-                        borderTopLeftRadius: 4,
-                        borderTopRightRadius: 4,
+                      borderTopLeftRadius: 4,
+                      borderTopRightRadius: 4,
                         position: 'relative',
                         '&:hover': { 
                           opacity: 0.8,
@@ -1364,7 +1364,7 @@ const ExecutiveDirectorDashboard = () => {
                         color="info"
                       />
                     )}
-                  </Box>
+                </Box>
                   
                   {feedback.notes && (
                     <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
@@ -1793,7 +1793,7 @@ const ExecutiveDirectorDashboard = () => {
                   })}
                 </Box>
               </Card>
-            </Grid>
+          </Grid>
           ))}
         </Grid>
       </Paper>
@@ -1809,7 +1809,7 @@ const ExecutiveDirectorDashboard = () => {
           <Typography variant="h5" sx={{ mb: 3, fontWeight: 'bold' }}>Feedback Heatmap</Typography>
           <Box sx={{ p: 3, textAlign: 'center' }}>
             <Typography variant="body1" color="text.secondary">Insufficient data to generate heatmap</Typography>
-          </Box>
+      </Box>
         </Paper>
       );
     }
@@ -1903,7 +1903,7 @@ const ExecutiveDirectorDashboard = () => {
           <Typography variant="h5" sx={{ mb: 3, fontWeight: 'bold' }}>Feedback Heatmap</Typography>
           <Box sx={{ p: 3, textAlign: 'center' }}>
             <Typography variant="body1" color="text.secondary">Insufficient feedback data to generate heatmap</Typography>
-          </Box>
+    </Box>
         </Paper>
       );
     }
@@ -2103,116 +2103,10 @@ const ExecutiveDirectorDashboard = () => {
             {renderQuestionFeedback()}
           </div>
           
-          {/* Student and staff performance charts */}
-          {renderStudentPerformanceChart()}
-          {renderStaffPerformanceChart()}
-          
           {/* Recent feedback */}
           {renderRecentFeedback()}
         </>
       )}
-    </Box>
-  );
-
-  // Render student performance chart
-  const renderStudentPerformanceChart = () => (
-    <Box sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3 }}>Student Performance %</Typography>
-      
-      <Box sx={{ height: '400px', bgcolor: '#f5f5f7', p: 3, borderRadius: 1 }}>
-        <Grid container spacing={2}>
-          {/* Y-axis labels */}
-          <Grid item xs={1}>
-            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <Typography>100</Typography>
-              <Typography>80</Typography>
-              <Typography>60</Typography>
-              <Typography>40</Typography>
-              <Typography>20</Typography>
-              <Typography>0</Typography>
-            </Box>
-          </Grid>
-          
-          {/* Chart bars */}
-          <Grid item xs={11}>
-            <Box sx={{ height: '300px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around' }}>
-              {studentQuestionPerformance.map((item) => (
-                <Box key={item.id} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '20%' }}>
-                  <Box 
-                    sx={{ 
-                      width: '80%', 
-                      height: `${item.score * 3}px`, 
-                      bgcolor: item.color,
-                      borderTopLeftRadius: 4,
-                      borderTopRightRadius: 4,
-                    }} 
-                  />
-                  <Typography sx={{ mt: 1 }}>{item.question}</Typography>
-                </Box>
-              ))}
-            </Box>
-            
-            {/* X-axis line */}
-            <Box sx={{ 
-              height: '1px', 
-              bgcolor: '#ddd', 
-              width: '100%', 
-              mt: 1 
-            }} />
-          </Grid>
-        </Grid>
-      </Box>
-    </Box>
-  );
-
-  // Render staff performance chart
-  const renderStaffPerformanceChart = () => (
-    <Box sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3 }}>Staff Performance %</Typography>
-      
-      <Box sx={{ height: '400px', bgcolor: '#f5f5f7', p: 3, borderRadius: 1 }}>
-        <Grid container spacing={2}>
-          {/* Y-axis labels */}
-          <Grid item xs={1}>
-            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <Typography>100</Typography>
-              <Typography>80</Typography>
-              <Typography>60</Typography>
-              <Typography>40</Typography>
-              <Typography>20</Typography>
-              <Typography>0</Typography>
-            </Box>
-          </Grid>
-          
-          {/* Chart bars */}
-          <Grid item xs={11}>
-            <Box sx={{ height: '300px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around' }}>
-              {staffQuestionPerformance.map((item) => (
-                <Box key={item.id} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '20%' }}>
-                  <Box 
-                    sx={{ 
-                      width: '80%', 
-                      height: `${item.score * 3}px`, 
-                      bgcolor: item.color,
-                      borderTopLeftRadius: 4,
-                      borderTopRightRadius: 4,
-                    }} 
-                  />
-                  <Typography sx={{ mt: 1 }}>{item.question}</Typography>
-                </Box>
-              ))}
-            </Box>
-            
-            {/* X-axis line */}
-            <Box sx={{ 
-              height: '1px', 
-              bgcolor: '#ddd', 
-              width: '100%', 
-              mt: 1 
-            }} />
-          </Grid>
-        </Grid>
-      </Box>
     </Box>
   );
 
