@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import {
@@ -15,7 +15,8 @@ import {
   FormControlLabel,
   useMediaQuery,
   Link,
-  Snackbar
+  Snackbar,
+  CircularProgress
 } from '@mui/material';
 import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
@@ -46,7 +47,7 @@ const Login = ({ setIsAuthenticated, setUserRole }) => {
   const dispatch = useDispatch();
 
   // Check for remembered credentials on component mount
-  React.useEffect(() => {
+  useEffect(() => {
     const rememberedUser = localStorage.getItem('rememberedUser');
     if (rememberedUser) {
       try {
@@ -78,6 +79,12 @@ const Login = ({ setIsAuthenticated, setUserRole }) => {
         [name]: value.trim() === ''
       }));
     }
+    
+    // Clear error message when user types
+    if (error) {
+      setError('');
+      setSnackbarOpen(false);
+    }
   };
 
   const validateForm = () => {
@@ -92,11 +99,8 @@ const Login = ({ setIsAuthenticated, setUserRole }) => {
     return !errors.username && !errors.password;
   };
 
-  const handleLogin = async (e) => {
-    // Ensure we prevent the default form submission in all cases
-    if (e) e.preventDefault();
-    console.log('Login attempt - preventing page reload');
-    
+  // Use useCallback to memoize the login function and prevent re-creation on re-renders
+  const handleLogin = useCallback(async () => {
     // Don't proceed if already loading
     if (loading) return;
     
@@ -108,22 +112,30 @@ const Login = ({ setIsAuthenticated, setUserRole }) => {
     setLoading(true);
     setError('');
 
-    try {
-      const response = await axios.post('http://localhost:8080/api/auth/signin', {
-        username: formData.username,
-        password: formData.password
-      });
+    // Store current values to use in callbacks to avoid closure issues
+    const currentUsername = formData.username;
+    const currentPassword = formData.password;
+    const currentRememberMe = rememberMe;
 
+    try {
+      // Clone the credentials to avoid reference issues
+      const credentials = {
+        username: currentUsername,
+        password: currentPassword
+      };
+
+      // Isolate the API call
+      const response = await axios.post('http://localhost:8080/api/auth/signin', credentials);
+
+      // Process response only if component is still mounted
       if (response.data && response.data.accessToken) {
         // Handle Remember Me functionality
-        if (rememberMe) {
-          // Store credentials securely (in a real app, consider more secure approaches than localStorage)
+        if (currentRememberMe) {
           localStorage.setItem('rememberedUser', JSON.stringify({
-            username: formData.username,
-            password: formData.password
+            username: currentUsername,
+            password: currentPassword
           }));
         } else {
-          // Clear any stored credentials if Remember Me is not checked
           localStorage.removeItem('rememberedUser');
         }
         
@@ -154,32 +166,32 @@ const Login = ({ setIsAuthenticated, setUserRole }) => {
         // Store role in localStorage for persistence
         localStorage.setItem('userRole', userRole);
         
-        // Redirect based on role
-        switch(userRole) {
-          case 'academic_director':
-          case 'academic':
-            navigate('/academic-director-dashboard');
-            break;
-          case 'executive_director':
-          case 'executive':
-            navigate('/executive-director-dashboard');
-            break;
-          case 'hod':
-          case 'head_of_department':
-            navigate('/hod-dashboard');
-            break;
-          case 'staff':
-            navigate('/staff-dashboard');
-            break;
-          case 'student':
-            navigate('/student-dashboard');
-            break;
-          default:
-            setError('Invalid user role');
-            setSnackbarOpen(true);
-            setLoading(false);
-            return; // Important: stop execution here
-        }
+        // Redirect based on role using timeout to break event chain
+        setTimeout(() => {
+          switch(userRole) {
+            case 'academic_director':
+            case 'academic':
+              navigate('/academic-director-dashboard');
+              break;
+            case 'executive_director':
+            case 'executive':
+              navigate('/executive-director-dashboard');
+              break;
+            case 'hod':
+            case 'head_of_department':
+              navigate('/hod-dashboard');
+              break;
+            case 'staff':
+              navigate('/staff-dashboard');
+              break;
+            case 'student':
+              navigate('/student-dashboard');
+              break;
+            default:
+              setError('Invalid user role');
+              setSnackbarOpen(true);
+          }
+        }, 0);
       } else {
         throw new Error('Invalid response from server');
       }
@@ -190,28 +202,55 @@ const Login = ({ setIsAuthenticated, setUserRole }) => {
       let errorMessage = 'Login failed. Please check your credentials and try again.';
       
       // Check for specific error responses
-      if (error.response?.data?.message) {
-        // Server provided a specific error message
-        errorMessage = error.response.data.message;
-        
-        // Make messages more user-friendly
-        if (errorMessage.includes('User Not found')) {
-          errorMessage = 'Username not found. Please check your username and try again.';
-        } else if (errorMessage.includes('Invalid Password')) {
-          errorMessage = 'Incorrect password. Please try again.';
+      if (error.response) {
+        if (error.response.status === 401) {
+          errorMessage = 'Invalid username or password. Please try again.';
+        } else if (error.response.data?.message) {
+          // Server provided a specific error message
+          errorMessage = error.response.data.message;
+          
+          // Make messages more user-friendly
+          if (errorMessage.includes('User Not found')) {
+            errorMessage = 'Username not found. Please check your username and try again.';
+          } else if (errorMessage.includes('Invalid Password')) {
+            errorMessage = 'Incorrect password. Please try again.';
+          }
         }
+      } else if (error.request) {
+        // The request was made but no response was received
+        errorMessage = 'Network error. Please check your internet connection and try again.';
       }
       
-      // Set the error message to display in the UI
-      setError(errorMessage);
-      setSnackbarOpen(true);
-      
-      // IMPORTANT: Don't clear localStorage on login error, only clear when actually logging out
-      // localStorage.clear();  // This line was causing issues by clearing token on error
+      // Set the error message to display in the UI - use a setTimeout to break event chain
+      setTimeout(() => {
+        setError(errorMessage);
+        setSnackbarOpen(true);
+        
+        // Reset password field on error for security
+        setFormData(prev => ({
+          ...prev,
+          password: ''
+        }));
+      }, 0);
     } finally {
-      setLoading(false);
+      // Use setTimeout to ensure this happens after any React events are processed
+      setTimeout(() => {
+        setLoading(false);
+      }, 0);
     }
-  };
+  }, [loading, formData.username, formData.password, rememberMe, navigate, setIsAuthenticated, setUserRole, validateForm]); // Dependencies
+
+  // Handle key press with useCallback to prevent recreation
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Enter' && !loading) {
+      e.preventDefault();
+      e.stopPropagation();
+      // Use setTimeout to break the event chain
+      setTimeout(() => {
+        handleLogin();
+      }, 0);
+    }
+  }, [handleLogin, loading]);
 
   const handleRememberMeChange = (e) => {
     const isChecked = e.target.checked;
@@ -459,11 +498,7 @@ const Login = ({ setIsAuthenticated, setUserRole }) => {
           </Typography>
           
           <Box
-            component="form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleLogin(e);
-            }}
+            component="div"
             sx={{
               mt: 4,
               width: '100%'
@@ -486,10 +521,12 @@ const Login = ({ setIsAuthenticated, setUserRole }) => {
               autoFocus
               value={formData.username}
               onChange={handleChange}
+              onKeyDown={handleKeyDown}
               sx={{ mb: 2 }}
               size="small"
               error={fieldErrors.username}
               helperText={fieldErrors.username ? "Username is required" : ""}
+              disabled={loading}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -511,10 +548,12 @@ const Login = ({ setIsAuthenticated, setUserRole }) => {
               autoComplete="current-password"
               value={formData.password}
               onChange={handleChange}
+              onKeyDown={handleKeyDown}
               sx={{ mb: 1.5 }}
               size="small"
               error={fieldErrors.password}
               helperText={fieldErrors.password ? "Password is required" : ""}
+              disabled={loading}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -560,6 +599,7 @@ const Login = ({ setIsAuthenticated, setUserRole }) => {
                     checked={rememberMe} 
                     onChange={handleRememberMeChange}
                     size="small"
+                    disabled={loading}
                     sx={{
                       color: '#1A2137',
                       '&.Mui-checked': {
@@ -570,19 +610,32 @@ const Login = ({ setIsAuthenticated, setUserRole }) => {
                 } 
                 label={<Typography variant="caption">Remember me</Typography>}
               />
-              <Link href="#" variant="caption" sx={{ color: '#1A2137', textDecoration: 'none', fontWeight: 'medium' }}>
+              <Link 
+                href="#" 
+                variant="caption" 
+                sx={{ 
+                  color: '#1A2137', 
+                  textDecoration: 'none', 
+                  fontWeight: 'medium',
+                  pointerEvents: loading ? 'none' : 'auto',
+                  opacity: loading ? 0.7 : 1
+                }}
+              >
                 Forgot Password?
               </Link>
             </Box>
             
             <Button
-              type="submit"
+              type="button" 
               fullWidth
               variant="contained"
               disabled={loading}
               onClick={(e) => {
+                // Prevent any possible default behavior and stop propagation
                 e.preventDefault();
-                handleLogin(e);
+                e.stopPropagation();
+                // Use setTimeout to break the event chain
+                setTimeout(() => handleLogin(), 0);
               }}
               sx={{
                 py: 1,
@@ -592,10 +645,27 @@ const Login = ({ setIsAuthenticated, setUserRole }) => {
                 },
                 borderRadius: 1,
                 fontWeight: 'medium',
-                fontSize: '0.875rem'
+                fontSize: '0.875rem',
+                position: 'relative',
+                minHeight: '36px'
               }}
             >
-              {loading ? 'Logging in...' : 'Login'}
+              {loading ? (
+                <>
+                  <CircularProgress 
+                    size={24} 
+                    sx={{ 
+                      color: 'white',
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      marginTop: '-12px',
+                      marginLeft: '-12px'
+                    }} 
+                  />
+                  <span style={{ visibility: 'hidden' }}>Login</span>
+                </>
+              ) : 'Login'}
             </Button>
             
             <Box sx={{ mt: 2, textAlign: 'center' }}>
