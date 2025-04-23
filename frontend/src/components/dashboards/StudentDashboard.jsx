@@ -2,33 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import API from '../../api/axiosConfig'; // Import the global API instance
 import { useNavigate } from 'react-router-dom';
-import {
-  Box,
-  Typography,
-  Paper,
-  Button,
-  Grid,
-  Rating,
-  Avatar,
-  Drawer,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Divider,
-  Snackbar,
-  Alert,
-  Container,
-  Card,
-  CardContent,
-  TableContainer,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  Chip
-} from '@mui/material';
+import {Box,Typography,Paper,Button,Grid,Rating,Avatar,Drawer,List,ListItem,ListItemIcon,ListItemText,Divider,Snackbar,Alert,Container,Card,CardContent,TableContainer,Table,TableHead,TableBody,TableRow,TableCell,Chip} from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import FeedbackIcon from '@mui/icons-material/Feedback';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -43,7 +17,7 @@ const StudentDashboard = () => {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('profile');
   const [userProfile, setUserProfile] = useState({
-    name: 'John Doe',
+    name: 'Sowmiya',
     department: 'Computer Science',
     sin: 'ST23456789',
     year: 'Third Year',
@@ -60,7 +34,7 @@ const StudentDashboard = () => {
     severity: 'info'
   });
   const [nextMeeting, setNextMeeting] = useState({
-    date: 'January 25, 2024',
+    date: 'January 25, 2026',
     time: '09:00 AM',
     minutesLeft: 45,
     secondsLeft: 30
@@ -123,11 +97,11 @@ const StudentDashboard = () => {
           console.log('Found stored user data:', parsedUserData);
           
           setUserProfile({
-            name: parsedUserData.fullName || 'John Doe',
-            department: parsedUserData.department?.name || 'Computer Science',
-            sin: parsedUserData.sinNumber || parsedUserData.username || 'ST23456789',
+            name: parsedUserData.fullName || 'Priya',
+            department: parsedUserData.department?.name || 'Information Technology',
+            sin: parsedUserData.sinNumber || parsedUserData.username || 'E22IT039',
             year: parsedUserData.year ? `Year ${parsedUserData.year}` : 'Third Year',
-            email: parsedUserData.email || 'john.doe@university.edu'
+            email: parsedUserData.email || 'e22it039@shanmugha.du.in'
           });
         } catch (e) {
           console.error('Error parsing stored user data:', e);

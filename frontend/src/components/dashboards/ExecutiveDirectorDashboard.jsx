@@ -3086,69 +3086,6 @@ const ExecutiveDirectorDashboard = () => {
               </Grid>
             </Paper>
           </Grid>
-
-          {/* Original Reports Section */}
-          {/* Overall Score Reports */}
-          <Grid item xs={12}>
-            <Paper sx={{ p: 3, mb: 2, borderRadius: 2 }}>
-              <Typography variant="h6" gutterBottom sx={{ mb: 3, color: '#1A2137' }}>
-                Overall Score Reports (PDF)
-              </Typography>
-              <Grid container spacing={3}>
-                {/* Student Overall Report */}
-                <Grid item xs={12} md={6}>
-                  <Card sx={{ p: 2, bgcolor: '#f8f9fa', height: '100%' }}>
-                    <CardContent>
-                      <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>
-                        Student Overall Report
-                      </Typography>
-                      <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                        Download complete feedback analysis and scores for all students in PDF format
-                      </Typography>
-                      <Button
-                        variant="contained"
-                        startIcon={<DownloadIcon />}
-                        onClick={() => handleDownloadReport('student', 'overall')}
-                        fullWidth
-                        sx={{ 
-                          bgcolor: '#1A2137', 
-                          '&:hover': { bgcolor: '#2A3147' }
-                        }}
-                      >
-                        Download Student PDF Report
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </Grid>
-
-                {/* Staff Overall Report */}
-                <Grid item xs={12} md={6}>
-                  <Card sx={{ p: 2, bgcolor: '#f8f9fa', height: '100%' }}>
-                    <CardContent>
-                      <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>
-                        Staff Overall Report
-                      </Typography>
-                      <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                        Download complete feedback analysis and scores for all staff members in PDF format
-                      </Typography>
-                      <Button
-                        variant="contained"
-                        startIcon={<DownloadIcon />}
-                        onClick={() => handleDownloadReport('staff', 'overall')}
-                        fullWidth
-                        sx={{ 
-                          bgcolor: '#1A2137', 
-                          '&:hover': { bgcolor: '#2A3147' }
-                        }}
-                      >
-                        Download Staff PDF Report
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
-            </Paper>
-          </Grid>
         </Grid>
       </Box>
     );

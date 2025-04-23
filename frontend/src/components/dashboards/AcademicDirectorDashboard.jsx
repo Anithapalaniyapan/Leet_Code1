@@ -1,54 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import API from '../../api/axiosConfig'; // Import the global API instance
-import {
-  Box,
-  Container,
-  Paper,
-  Typography,
-  Button,
-  Grid,
-  Card,
-  CardContent,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  useTheme,
-  useMediaQuery,
-  AppBar,
-  Toolbar,
-  Tab,
-  Tabs,
-  Avatar,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Divider,
-  Snackbar,
-  Alert,
-  LinearProgress,
-  TableContainer,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  Chip,
-  FormHelperText,
-  FormControlLabel,
-  RadioGroup,
-  Radio,
-  FormLabel,
-  CircularProgress
-} from '@mui/material';
+import {Box,Container,Paper,Typography,Button,Grid,Card,CardContent,TextField,FormControl,InputLabel,Select,MenuItem,IconButton,Dialog,
+  DialogTitle,DialogContent,DialogActions,useTheme,useMediaQuery,AppBar,Toolbar,Tab,Tabs,Avatar,List,ListItem,ListItemIcon,ListItemText,
+  Divider,Snackbar,Alert,LinearProgress,TableContainer,Table,TableHead,TableRow,TableCell,TableBody,Chip,FormHelperText,FormControlLabel,RadioGroup,Radio,FormLabel,CircularProgress} from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import QuestionAnswerIcon from '@mui/icons-material/QuestionAnswer';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -63,7 +18,6 @@ import EventIcon from '@mui/icons-material/Event';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import PersonIcon from '@mui/icons-material/Person';
 import { useNavigate } from 'react-router-dom';
-import MeetingManagement from '../student/dashboard/MeetingManagement';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import PeopleIcon from '@mui/icons-material/People';
 import { blue } from '@mui/material/colors';
