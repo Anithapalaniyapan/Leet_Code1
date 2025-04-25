@@ -653,11 +653,7 @@ const Login = ({ setIsAuthenticated, setUserRole }) => {
               ) : 'Login'}
             </Button>
             
-            <Box sx={{ mt: 2, textAlign: 'center' }}>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Having trouble logging in? <Link href="#" sx={{ color: '#1A2137', textDecoration: 'none', fontWeight: 'medium' }}>Contact Support</Link>
-              </Typography>
-            </Box>
+            
           </Box>
         </Paper>
       </Box>
