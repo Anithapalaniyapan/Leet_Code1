@@ -1638,16 +1638,16 @@ const AcademicDirectorDashboard = () => {
                     </Typography>
                     <Typography variant="body2" sx={{ mb: 2 }}>
                       Download a comprehensive PDF report with all feedback data and analytics.
-                    </Typography>
-                    <Button
+          </Typography>
+          <Button
                       fullWidth
-                      variant="contained"
-                      color="primary"
-                      onClick={handleDownloadReport}
-                      startIcon={<DownloadIcon />}
-                    >
+                variant="contained"
+                color="primary"
+                onClick={handleDownloadReport}
+                startIcon={<DownloadIcon />}
+              >
                       Download PDF Report
-                    </Button>
+          </Button>
                   </Box>
                 </Grid>
                 

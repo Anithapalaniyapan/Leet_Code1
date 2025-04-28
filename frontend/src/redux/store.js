@@ -5,6 +5,7 @@ import meetingReducer from './slices/meetingSlice';
 import questionReducer from './slices/questionSlice';
 import feedbackReducer from './slices/feedbackSlice';
 import uiReducer from './slices/uiSlice';
+import reportReducer from './slices/reportSlice';
 
 export const store = configureStore({
   reducer: {
@@ -14,5 +15,6 @@ export const store = configureStore({
     questions: questionReducer,
     feedback: feedbackReducer,
     ui: uiReducer,
+    reports: reportReducer,
   },
 }); 
