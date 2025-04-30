@@ -88,10 +88,14 @@ db.feedback.belongsTo(db.user, {
   as: 'user'
 });
 
-db.question.hasMany(db.feedback, { as: 'feedbacks' });
+db.question.hasMany(db.feedback, { 
+  as: 'feedbacks',
+  onDelete: 'CASCADE'
+});
 db.feedback.belongsTo(db.question, {
   foreignKey: 'questionId',
-  as: 'question'
+  as: 'question',
+  onDelete: 'CASCADE'
 });
 
 // Meeting relationships
@@ -174,6 +178,16 @@ db.department.hasMany(db.hodResponse, {
 db.hodResponse.belongsTo(db.department, {
   foreignKey: 'departmentId',
   as: 'department'
+});
+
+// Meeting-Question relationship
+db.meeting.hasMany(db.question, { 
+  as: 'questions',
+  foreignKey: 'meetingId'
+});
+db.question.belongsTo(db.meeting, {
+  foreignKey: 'meetingId',
+  as: 'meeting'
 });
 
 // Pre-defined roles

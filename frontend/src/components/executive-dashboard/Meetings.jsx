@@ -101,6 +101,26 @@ const Meetings = ({ meetings, loading, error }) => {
     filterUpcomingMeetings();
   }, [meetings, activeSection]);
 
+  // Format the time with AM/PM
+  const formatTimeWithAMPM = (timeString) => {
+    if (!timeString) return '';
+    
+    // If already includes AM/PM, return as is
+    if (timeString.includes('AM') || timeString.includes('PM') || 
+        timeString.includes('am') || timeString.includes('pm')) {
+      return timeString;
+    }
+    
+    // Parse the time string (expected format: "HH:MM")
+    const [hours, minutes] = timeString.split(':').map(part => parseInt(part, 10));
+    if (isNaN(hours) || isNaN(minutes)) return timeString;
+    
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours % 12 || 12; // Convert 0 to 12 for 12 AM
+    
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  };
+
   // Format the time range (start time to end time)
   const formatTimeRange = (meeting) => {
     // Check for different time field patterns
@@ -114,41 +134,106 @@ const Meetings = ({ meetings, loading, error }) => {
                     (meeting.time && meeting.time.split(' - ')[1]) ||
                     (meeting.time && meeting.time.split('-')[1]);
     
-    // If we have both start and end time, display the range
+    // If we have both start and end time, display the range with AM/PM
     if (startTime && endTime) {
-      return `${startTime.trim()} - ${endTime.trim()}`;
+      return `${formatTimeWithAMPM(startTime.trim())} - ${formatTimeWithAMPM(endTime.trim())}`;
     }
     
-    // If the time already looks like a range (contains '-'), return as is
+    // If the time already looks like a range (contains '-'), format each part
     if (meeting.time && (meeting.time.includes('-') || meeting.time.includes(' to '))) {
-      return meeting.time;
+      if (meeting.time.includes('-')) {
+        const [start, end] = meeting.time.split('-').map(t => t.trim());
+        return `${formatTimeWithAMPM(start)} - ${formatTimeWithAMPM(end)}`;
+      } else if (meeting.time.includes(' to ')) {
+        const [start, end] = meeting.time.split(' to ').map(t => t.trim());
+        return `${formatTimeWithAMPM(start)} to ${formatTimeWithAMPM(end)}`;
+      }
+      return meeting.time; // Fallback to original format if we can't parse
     }
     
     // If only single time available
     if (startTime) {
-      return startTime.trim();
+      return formatTimeWithAMPM(startTime.trim());
     }
     
     // Default if no time info available
     return 'Not specified';
   };
 
-  // Determine role information from meeting object
+  // Determine role information from meeting object - updated for consistency
   const getRoleInfo = (meeting) => {
-    // Check all possible properties that might indicate role
-    const roleId = meeting.roleId || 
-                   (meeting.role && meeting.role.id) || 
-                   (meeting.targetRole && meeting.targetRole === 'staff' ? 2 : 1);
-                   
-    // Convert roleId to numeric if it's a string
-    const numericRoleId = typeof roleId === 'string' ? parseInt(roleId, 10) : roleId;
+    // Add debugging to troubleshoot
+    console.log('Executive Dashboard - Meeting role debug:', {
+      meetingId: meeting.id || meeting._id,
+      role: meeting.role,
+      roleId: meeting.roleId,
+      targetRole: meeting.targetRole
+    });
     
-    // Return both the formatted role name and whether it's a staff meeting
-    const isStaff = numericRoleId === 2;
+    // First check for direct numeric roleId or role values (most reliable)
+    if (meeting.roleId === 1 || meeting.role === 1 || meeting.role === '1') {
+      return {
+        roleName: "Student",
+        isStaffMeeting: false
+      };
+    } else if (meeting.roleId === 2 || meeting.role === 2 || meeting.role === '2') {
+      return {
+        roleName: "Staff",
+        isStaffMeeting: true
+      };
+    }
+
+    // Then check string values for role
+    if (typeof meeting.role === 'string') {
+      const roleStr = meeting.role.toLowerCase();
+      if (roleStr === 'student' || roleStr.includes('student')) {
+        return {
+          roleName: "Student",
+          isStaffMeeting: false
+        };
+      } else if (roleStr === 'staff' || roleStr.includes('staff') || roleStr.includes('faculty')) {
+        return {
+          roleName: "Staff",
+          isStaffMeeting: true
+        };
+      }
+    }
     
+    // If role is an object with an id property
+    if (typeof meeting.role === 'object' && meeting.role !== null) {
+      if (meeting.role.id === 1 || (meeting.role.name && meeting.role.name.toLowerCase().includes('student'))) {
+        return {
+          roleName: "Student",
+          isStaffMeeting: false
+        };
+      } else if (meeting.role.id === 2 || (meeting.role.name && meeting.role.name.toLowerCase().includes('staff'))) {
+        return {
+          roleName: "Staff",
+          isStaffMeeting: true
+        };
+      }
+    }
+    
+    // Check targetRole property
+    if (meeting.targetRole) {
+      const targetRoleStr = meeting.targetRole.toLowerCase();
+      if (targetRoleStr === 'student' || targetRoleStr.includes('student')) {
+        return {
+          roleName: "Student",
+          isStaffMeeting: false
+        };
+      } else if (targetRoleStr === 'staff' || targetRoleStr.includes('staff')) {
+        return {
+          roleName: "Staff",
+          isStaffMeeting: true
+        };
+      }
+    }
+    
+    // Default fallback - assume it's a student meeting if nothing else matches
     return {
-      roleName: isStaff ? "Staff" : "Student",
-      isStaffMeeting: isStaff
+      roleName: "Student",
+      isStaffMeeting: false
     };
   };
   

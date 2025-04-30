@@ -14,7 +14,7 @@ import Sidebar from '../executive-dashboard/Sidebar';
 import Reports from '../executive-dashboard/Reports';
 
 // Import the new Analytics component
-import Analytics from '../Analytics/Analytics';
+import Analytics from '../analytics/Analytics';
 
 const ExecutiveDirectorDashboard = () => {
   const navigate = useNavigate();

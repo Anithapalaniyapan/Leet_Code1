@@ -48,4 +48,11 @@ router.get(
   questionController.getQuestionsByCreator
 );
 
+// Get questions by meeting ID
+router.get(
+  '/meeting/:meetingId',
+  [authJwt.verifyToken],
+  questionController.getQuestionsByMeeting
+);
+
 module.exports = router;

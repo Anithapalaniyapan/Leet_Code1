@@ -30,7 +30,7 @@ module.exports = (sequelize, Sequelize) => {
       allowNull: true
     },
     status: {
-      type: Sequelize.ENUM('scheduled', 'in-progress', 'completed', 'cancelled'),
+      type: Sequelize.ENUM('scheduled', 'in-progress', 'completed', 'cancelled', 'rescheduled'),
       defaultValue: 'scheduled'
     },
     departmentId: {

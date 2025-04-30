@@ -28,6 +28,23 @@ module.exports = (sequelize, Sequelize) => {
         model: 'meetings',
         key: 'id'
       }
+    },
+    questionId: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'questions',
+        key: 'id'
+      },
+      onDelete: 'CASCADE'
+    },
+    userId: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
     }
   });
 

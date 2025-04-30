@@ -62,6 +62,9 @@ exports.getUserById = async (req, res) => {
 // Get current user profile
 exports.getCurrentUser = async (req, res) => {
   try {
+    console.log('Getting current user profile for userId:', req.userId);
+    
+    // Include primary role for role identification
     const user = await User.findByPk(req.userId, {
       include: [
         {
@@ -69,6 +72,11 @@ exports.getCurrentUser = async (req, res) => {
           as: 'roles',
           attributes: ['id', 'name'],
           through: { attributes: [] }
+        },
+        {
+          model: Role,
+          as: 'primaryRole',
+          attributes: ['id', 'name']
         },
         {
           model: Department,
@@ -83,8 +91,25 @@ exports.getCurrentUser = async (req, res) => {
       return res.status(404).send({ message: 'User not found' });
     }
 
+    // Check user roles
+    const userRoles = user.roles.map(role => role.name);
+    console.log('User roles:', userRoles);
+    
+    // For Academic Director, fetch all departments
+    if (userRoles.includes('academic_director') || userRoles.includes('executive_director')) {
+      const departments = await Department.findAll({
+        attributes: ['id', 'name']
+      });
+      
+      console.log('Fetched departments for director:', departments);
+      
+      // Add departments to user object
+      user.dataValues.departments = departments;
+    }
+
     res.status(200).send(user);
   } catch (error) {
+    console.error('Error in getCurrentUser:', error);
     res.status(500).send({ message: error.message });
   }
 };

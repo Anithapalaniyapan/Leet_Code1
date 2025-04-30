@@ -246,27 +246,35 @@ exports.getMeetingsByDepartmentAndYear = async (req, res) => {
 // Get meeting by ID
 exports.getMeetingById = async (req, res) => {
   try {
-    const meeting = await Meeting.findByPk(req.params.id, {
+    const meetingId = req.params.id;
+    
+    const meeting = await Meeting.findByPk(meetingId, {
       include: [
-        {
-          model: User,
-          as: 'creator',
-          attributes: ['id', 'username', 'fullName']
-        },
         {
           model: Department,
           as: 'department',
           attributes: ['id', 'name']
+        },
+        {
+          model: User,
+          as: 'createdByUser',
+          attributes: ['id', 'username', 'fullName', 'email']
+        },
+        {
+          model: db.question,
+          as: 'questions',
+          attributes: ['id', 'text', 'role', 'year', 'active']
         }
       ]
     });
-
+    
     if (!meeting) {
       return res.status(404).send({ message: 'Meeting not found' });
     }
-
+    
     res.status(200).send(meeting);
   } catch (error) {
+    console.error('Error fetching meeting:', error);
     res.status(500).send({ message: error.message });
   }
 };
@@ -278,6 +286,18 @@ exports.updateMeeting = async (req, res) => {
 
     if (!meeting) {
       return res.status(404).send({ message: 'Meeting not found' });
+    }
+
+    // Check if date or time is being updated
+    const isDateTimeChanged = (
+      (req.body.meetingDate && req.body.meetingDate !== meeting.meetingDate) ||
+      (req.body.startTime && req.body.startTime !== meeting.startTime) ||
+      (req.body.endTime && req.body.endTime !== meeting.endTime)
+    );
+
+    // If date or time is changed and the user is an Academic Director, update status to 'rescheduled'
+    if (isDateTimeChanged && req.userRoles.includes('ROLE_ACADEMIC_DIRECTOR')) {
+      req.body.status = 'rescheduled';
     }
 
     await meeting.update(req.body);
@@ -312,48 +332,48 @@ exports.deleteMeeting = async (req, res) => {
 // Get meetings for the current user based on role, department, and year
 exports.getMeetingsForCurrentUser = async (req, res) => {
   try {
-    // Get the current user with roles and department
-    const user = await User.findByPk(req.userId, {
-      include: [
-        {
-          model: db.role,
-          as: 'primaryRole',
-          attributes: ['id', 'name']
-        },
-        {
-          model: db.department,
-          as: 'department',
-          attributes: ['id', 'name']
-        }
-      ]
-    });
+    // Get the current user
+    const user = await User.findByPk(req.userId);
 
     if (!user) {
       return res.status(404).send({ message: 'User not found' });
     }
 
-    // Get user details
-    const userRole = user.primaryRole?.name;
-    const departmentId = user.department?.id;
-    const year = user.year; // If your user model has year field
+    // Get roles and department info
+    const roles = await user.getRoles();
+    const userRoles = roles.map(role => role.name);
+    
+    // Get department info
+    let departmentId = null;
+    if (user.departmentId) {
+      departmentId = user.departmentId;
+    }
+    
+    // Get user year if available
+    const year = user.year;
 
-    console.log(`Getting meetings for user: ${user.username}, role: ${userRole}, department: ${departmentId}, year: ${year}`);
+    console.log(`Getting meetings for user: ${user.username}, roles: ${userRoles.join(',')}, department: ${departmentId}, year: ${year}`);
 
     // Build where clause based on user details
-    const whereClause = {
-      departmentId: departmentId
-    };
+    const whereClause = {};
+    
+    // If user has department, filter by it
+    if (departmentId) {
+      whereClause.departmentId = departmentId;
+    }
 
-    // If user is a student
-    if (userRole === 'student') {
+    // Role-specific filters
+    if (userRoles.includes('student')) {
       whereClause.roleId = 1; // For student meetings
       if (year) {
         whereClause.year = year;
       }
     } 
-    // If user is a staff
-    else if (userRole === 'staff') {
+    else if (userRoles.includes('staff')) {
       whereClause.roleId = 2; // For staff meetings
+    }
+    else if (userRoles.includes('hod')) {
+      whereClause.roleId = 3; // For HOD meetings
     }
     // For directors, don't filter by role
 
@@ -377,19 +397,37 @@ exports.getMeetingsForCurrentUser = async (req, res) => {
       order: [['meetingDate', 'DESC'], ['startTime', 'DESC']]
     });
 
-    // Categorize meetings
+    // Categorize meetings and update status if needed
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const currentTime = now.getHours() * 60 + now.getMinutes(); // Current time in minutes
     
     const pastMeetings = [];
     const currentMeetings = [];
     const futureMeetings = [];
+    
+    const meetingsToUpdate = [];
     
     meetings.forEach(meeting => {
       const meetingDate = new Date(meeting.meetingDate);
       
       // Compare dates only (not time)
       const meetingDateOnly = new Date(meetingDate.getFullYear(), meetingDate.getMonth(), meetingDate.getDate());
+      
+      // Extract meeting time in minutes for comparison
+      const meetingEndTime = meeting.endTime ? meeting.endTime.split(':') : meeting.startTime.split(':');
+      const meetingEndMinutes = parseInt(meetingEndTime[0]) * 60 + parseInt(meetingEndTime[1]);
+
+      // Check if the meeting has passed
+      const meetingHasPassed = 
+        meetingDateOnly < today || 
+        (meetingDateOnly.getTime() === today.getTime() && meetingEndMinutes < currentTime);
+
+      // Auto-update status to completed if meeting has passed and status is still scheduled or rescheduled
+      if (meetingHasPassed && (meeting.status === 'scheduled' || meeting.status === 'rescheduled' || meeting.status === 'in-progress')) {
+        meeting.status = 'completed';
+        meetingsToUpdate.push({ id: meeting.id, status: 'completed' });
+      }
       
       if (meetingDateOnly < today) {
         pastMeetings.push(meeting);
@@ -400,12 +438,20 @@ exports.getMeetingsForCurrentUser = async (req, res) => {
       }
     });
 
+    // Update meeting statuses in database
+    if (meetingsToUpdate.length > 0) {
+      console.log(`Updating status for ${meetingsToUpdate.length} meetings to 'completed'`);
+      for (const update of meetingsToUpdate) {
+        await Meeting.update({ status: update.status }, { where: { id: update.id } });
+      }
+    }
+
     res.status(200).send({
       userDetails: {
         id: user.id,
         username: user.username,
-        role: userRole,
-        department: user.department?.name,
+        roles: userRoles,
+        departmentId: departmentId,
         year: year
       },
       pastMeetings,
@@ -418,5 +464,42 @@ exports.getMeetingsForCurrentUser = async (req, res) => {
       message: 'Failed to get meetings for current user',
       error: error.message 
     });
+  }
+};
+
+// Update status of all meetings that have passed
+exports.updateMeetingStatuses = async () => {
+  try {
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const currentTime = now.toTimeString().split(' ')[0];
+
+    // Find all scheduled or rescheduled meetings that have ended
+    const meetings = await Meeting.findAll({
+      where: {
+        status: ['scheduled', 'rescheduled', 'in-progress'],
+        [db.Sequelize.Op.or]: [
+          {
+            meetingDate: { [db.Sequelize.Op.lt]: today }
+          },
+          {
+            meetingDate: today,
+            endTime: { [db.Sequelize.Op.lt]: currentTime }
+          }
+        ]
+      }
+    });
+
+    console.log(`Found ${meetings.length} meetings to update to 'completed'`);
+
+    // Update their status to 'completed'
+    for (const meeting of meetings) {
+      await meeting.update({ status: 'completed' });
+    }
+
+    return { updated: meetings.length };
+  } catch (error) {
+    console.error('Error updating meeting statuses:', error);
+    return { error: error.message };
   }
 };

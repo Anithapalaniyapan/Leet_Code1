@@ -113,6 +113,7 @@ const StaffDashboard = () => {
     severity: 'info'
   });
   const [localQuestions, setLocalQuestions] = useState([]);
+  const [activeMeeting, setActiveMeeting] = useState(null);
 
   // Set initial active section
   useEffect(() => {
@@ -257,106 +258,62 @@ const StaffDashboard = () => {
   }, [dispatch, submitSuccess, feedbackError]);
 
   // Update fetchQuestions function
-  const fetchQuestions = async () => {
-    setQuestionsLoading(true);
-    setQuestionsError('');
-    
-    console.log('Starting to fetch questions, current Redux questions state:', questions);
-    
+  const fetchQuestions = async (meetingId = null) => {
     try {
-      // Get user data from localStorage
-      const userData = JSON.parse(localStorage.getItem('userData')) || {};
-      console.log('Staff userData:', userData);
-
-      // Get department ID
-      const departmentId = userData.departmentId || 
-                          (userData.department?.id) || 
-                          (typeof userData.department === 'number' ? userData.department : null);
-
-      if (!departmentId) {
-        throw new Error('Department ID not found in your profile');
+      setQuestionsLoading(true);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
       }
 
-      console.log('Fetching questions for department:', departmentId);
-
-      // Make the API call
-      const response = await axios.get(`http://localhost:8080/api/questions/department/${departmentId}`, {
-          params: {
-            role: 'staff'
-          },
-          headers: {
-            'x-access-token': localStorage.getItem('token')
-          }
+      let endpoint = '';
+      
+      // If meetingId is provided, use the meeting-specific endpoint
+      if (meetingId) {
+        endpoint = `http://localhost:8080/api/questions/meeting/${meetingId}`;
+        
+        // Set active meeting for feedback submission
+        const meeting = meetings.find(m => m.id === meetingId);
+        if (meeting) {
+          setActiveMeeting(meeting);
+          console.log('Set active meeting for feedback:', meeting);
+        }
+      } else {
+        // Otherwise use the regular endpoint that returns questions for current user
+        endpoint = 'http://localhost:8080/api/questions';
+        
+        // Clear active meeting
+        setActiveMeeting(null);
+      }
+      
+      const response = await axios.get(endpoint, {
+        headers: {
+          'x-access-token': token
+        }
       });
 
-      console.log('Questions API Response:', response.data);
-
-      if (response.data && Array.isArray(response.data)) {
-        const staffQuestions = response.data.filter(question => {
-          const isStaffQuestion = 
-            question.role?.toLowerCase() === 'staff' ||
-            question.role?.toLowerCase() === 'both' ||
-            question.roleId === 2 ||
-            question.targetRole?.toLowerCase() === 'staff';
-          
-          return isStaffQuestion;
-        });
-
-        console.log('Filtered staff questions:', staffQuestions);
-
-        if (staffQuestions.length === 0) {
-          console.log('No staff questions found after filtering');
-          setQuestionsError('No questions available for staff in your department');
-          
-          // Update both Redux and local state
-          dispatch({
-            type: 'questions/setQuestions',
-            payload: []
-          });
-          setLocalQuestions([]);
-          return;
-        }
-
-        // Update both Redux and local state
-        dispatch({
-          type: 'questions/setQuestions',
-          payload: staffQuestions
-        });
-        setLocalQuestions(staffQuestions);
+      if (response.data) {
+        // Set questions and initialize ratings
+        const questionsData = Array.isArray(response.data) ? response.data : [];
         
-        // Initialize ratings state for new questions
-        const newRatings = {};
-        staffQuestions.forEach(question => {
-          newRatings[question.id] = 0;
-        });
-        setLocalRatings(newRatings);
-        setQuestionsError('');
+        setLocalQuestions(questionsData);
         
-        console.log('Questions loaded successfully, count:', staffQuestions.length);
-      } else {
-        console.error('Invalid response format:', response.data);
-        throw new Error('Invalid response format from server');
+        // Initialize ratings for each question
+        const initialRatings = {};
+        questionsData.forEach(question => {
+          initialRatings[question.id] = 0;
+        });
+        setLocalRatings(initialRatings);
+        
+        setQuestionsError(null);
       }
     } catch (error) {
       console.error('Error fetching questions:', error);
-      const errorMessage = error.response?.data?.message || 
-                          error.message || 
-                          'Failed to fetch questions. Please try again later.';
-      
-      console.log('Setting error message:', errorMessage);
-      setQuestionsError(errorMessage);
-      
-      // Clear questions in both Redux and local state
-      dispatch({
-        type: 'questions/setQuestions',
-        payload: []
-      });
+      setQuestionsError('Failed to load questions. Please try again later.');
       setLocalQuestions([]);
     } finally {
       setQuestionsLoading(false);
-      // Log the final state after the operation
-      console.log('Questions fetch completed, Redux questions state:', questions);
-      console.log('Questions fetch completed, local questions state:', localQuestions);
     }
   };
 
@@ -439,49 +396,65 @@ const StaffDashboard = () => {
       
       setLoading(true);
 
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      // Process each question's rating and submit individually
-      for (const [questionId, rating] of Object.entries(localRatings)) {
-        if (rating > 0) {
-          // Using the correct API endpoint for feedback submission
-          await axios.post('http://localhost:8080/api/feedback/submit', {
-            questionId: parseInt(questionId),
-            rating: rating,
-            notes: '' // Optional notes field
-          }, {
-        headers: {
-              'x-access-token': token,
-              'Content-Type': 'application/json'
-        }
-      });
+      // Try to submit feedback
+      try {
+        const token = localStorage.getItem('token');
+        
+        // Get meetingId from active meeting if available
+        const activeMeetingId = activeMeeting?.id || null;
           
-          console.log(`Feedback for question ${questionId} submitted successfully`);
+        console.log('Submitting feedback for meeting ID:', activeMeetingId);
+        
+        // Process each question's rating and submit individually
+        for (const [questionId, rating] of Object.entries(localRatings)) {
+          if (rating > 0) {
+            // Using the correct API endpoint for feedback submission
+            await axios.post('http://localhost:8080/api/feedback/submit', {
+              questionId: parseInt(questionId),
+              rating: rating,
+              notes: '', // Optional notes field
+              meetingId: activeMeetingId // Include the meetingId
+            }, {
+              headers: {
+                'x-access-token': token,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            console.log(`Feedback for question ${questionId} submitted successfully`);
+          }
         }
+
+        // Show success message
+        setSnackbar({
+          open: true,
+          message: 'Feedback submitted successfully',
+          severity: 'success'
+        });
+
+        // Reset ratings
+        const resetRatings = {};
+        questions.forEach(q => {
+          resetRatings[q.id] = 0;
+        });
+        setLocalRatings(resetRatings);
+      } catch (apiError) {
+        console.error('Error submitting feedback to API:', apiError);
+        
+        // Show error message
+        setSnackbar({
+          open: true,
+          message: 'Failed to submit feedback: ' + (apiError.response?.data?.message || 'Please try again'),
+          severity: 'error'
+        });
       }
-
-      setSnackbar({
-        open: true,
-        message: 'Feedback submitted successfully',
-        severity: 'success'
-      });
-
-      // Reset ratings
-      const resetRatings = {};
-      questions.forEach(q => {
-        resetRatings[q.id] = 0;
-      });
-      setLocalRatings(resetRatings);
-
     } catch (error) {
-      console.error('Error submitting feedback:', error);
+      console.error('Error in feedback submission flow:', error);
+      // Show generic message
       setSnackbar({
         open: true,
-        message: 'Failed to submit feedback: ' + (error.response?.data?.message || 'Please try again.'),
-        severity: 'error'
+        message: 'Please try again later',
+        severity: 'info'
       });
     } finally {
       setLoading(false);
@@ -899,7 +872,13 @@ const StaffDashboard = () => {
                         {meeting.title}
                           </TableCell>
                           <TableCell>{formattedDate}</TableCell>
-                          <TableCell>{`${meeting.startTime || '00:00'} - ${meeting.endTime || '00:00'}`}</TableCell>
+                          <TableCell>
+                            {meeting.startTime ? (
+                              meeting.endTime ? 
+                                `${formatTimeWithAMPM(meeting.startTime)} - ${formatTimeWithAMPM(meeting.endTime)}` :
+                                formatTimeWithAMPM(meeting.startTime)
+                            ) : 'Time not specified'}
+                          </TableCell>
                           <TableCell>{departmentName}</TableCell>
                           <TableCell>
                             <Chip 
@@ -923,7 +902,7 @@ const StaffDashboard = () => {
                               variant="outlined"
                               color="primary"
                               size="small"
-                              onClick={() => handleFetchQuestions(meeting.id)}
+                              onClick={() => handleFetchQuestionsByMeeting(meeting.id)}
                               startIcon={<FeedbackIcon />}
                             >
                               Feedback
@@ -1309,6 +1288,26 @@ const StaffDashboard = () => {
       }
     };
 
+    // Helper function to format time with AM/PM
+    const formatTimeWithAMPM = (timeString) => {
+      if (!timeString) return '';
+      
+      // If already includes AM/PM, return as is
+      if (timeString.includes('AM') || timeString.includes('PM') || 
+          timeString.includes('am') || timeString.includes('pm')) {
+        return timeString;
+      }
+      
+      // Parse the time string (expected format: "HH:MM")
+      const [hours, minutes] = timeString.split(':').map(part => parseInt(part, 10));
+      if (isNaN(hours) || isNaN(minutes)) return timeString;
+      
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const hours12 = hours % 12 || 12; // Convert 0 to 12 for 12 AM
+      
+      return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+    };
+
     return (
       <Box sx={{ p: 3 }}>
         <Typography variant="h5" gutterBottom>
@@ -1326,6 +1325,15 @@ const StaffDashboard = () => {
         )}
       </Box>
     );
+  };
+
+  // Handle fetching questions for a specific meeting
+  const handleFetchQuestionsByMeeting = (meetingId) => {
+    // First switch to the feedback section
+    setActiveSection('feedback');
+    
+    // Then fetch questions for this meeting
+    fetchQuestions(meetingId);
   };
 
   // Main content

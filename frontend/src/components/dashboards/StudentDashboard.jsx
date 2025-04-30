@@ -41,6 +41,8 @@ const StudentDashboard = () => {
   });
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState('');
+  const [activeMeeting, setActiveMeeting] = useState(null);
+  const [selectedMeeting, setSelectedMeeting] = useState(null);
 
   // Check authentication and role on component mount
   useEffect(() => {
@@ -322,57 +324,60 @@ const StudentDashboard = () => {
     }
   }, []);
 
-  // Add useEffect for fetching questions
-  useEffect(() => {
-    if (activeSection === 'feedback') {
-      fetchQuestions();
-    }
-  }, [activeSection]);
-
-  // Update fetchQuestions function
-  const fetchQuestions = async () => {
+  // Update fetchQuestions function to handle meeting-specific questions
+  const fetchQuestions = async (meetingId = null) => {
     setQuestionsLoading(true);
+    setQuestionsError('');
+    
     try {
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('No authentication token found');
       }
-
-      const userData = JSON.parse(localStorage.getItem('userData')) || {};
-      const departmentId = userData.departmentId || userData.department?.id || 5;
-      const yearOfStudy = userData.year || 4;
-
-      console.log('Fetching questions for department:', departmentId, 'year:', yearOfStudy);
-
-      const response = await axios.get(
-        `http://localhost:8080/api/questions/department/${departmentId}/year/${yearOfStudy}?role=student`,
-        {
-          headers: {
-            'x-access-token': token
-          }
+      
+      let endpoint = '';
+      
+      // If meetingId is provided, use the meeting-specific endpoint
+      if (meetingId) {
+        endpoint = `http://localhost:8080/api/questions/meeting/${meetingId}`;
+        
+        // Also set this as the active meeting for feedback submission
+        const meeting = meetings.find(m => m.id === meetingId);
+        if (meeting) {
+          setActiveMeeting(meeting);
+          console.log('Set active meeting for feedback:', meeting);
         }
-      );
-
-      if (response.data && Array.isArray(response.data)) {
-        console.log('Received questions:', response.data);
-        setQuestions(response.data);
-        
-        // Initialize ratings state for new questions
-        const newRatings = {};
-        response.data.forEach(question => {
-          newRatings[question.id] = 0;
-        });
-        setRatings(newRatings);
-        
-        setQuestionsError('');
       } else {
-        setQuestions([]);
-        setQuestionsError('No questions available for your year and department');
+        // Otherwise use the regular endpoint that returns questions for current user
+        endpoint = 'http://localhost:8080/api/questions';
+        
+        // Clear active meeting when fetching all questions
+        setActiveMeeting(null);
+      }
+      
+      const response = await axios.get(endpoint, {
+        headers: {
+          'x-access-token': token
+        }
+      });
+      
+      if (response.data) {
+        console.log('Questions data:', response.data);
+        
+        // Set questions and initialize ratings
+        const questionsData = Array.isArray(response.data) ? response.data : [];
+        setQuestions(questionsData);
+        
+        // Initialize ratings for each question
+        const initialRatings = {};
+        questionsData.forEach(question => {
+          initialRatings[question.id] = 0;
+        });
+        setRatings(initialRatings);
       }
     } catch (error) {
       console.error('Error fetching questions:', error);
-      setQuestionsError('Failed to fetch questions. Please try again later.');
-      setQuestions([]);
+      setQuestionsError('Failed to load questions. Please try again later.');
     } finally {
       setQuestionsLoading(false);
     }
@@ -405,6 +410,11 @@ const StudentDashboard = () => {
       try {
         const token = localStorage.getItem('token');
         
+        // Get meetingId from active meeting if available
+        const activeMeetingId = activeMeeting?.id || null;
+          
+        console.log('Submitting feedback for meeting ID:', activeMeetingId);
+        
         // Process each question's rating and submit individually
         for (const [questionId, rating] of Object.entries(ratings)) {
           if (rating > 0) {
@@ -412,7 +422,8 @@ const StudentDashboard = () => {
             await axios.post('http://localhost:8080/api/feedback/submit', {
               questionId: parseInt(questionId),
               rating: rating,
-              notes: '' // Optional notes field
+              notes: '', // Optional notes field
+              meetingId: activeMeetingId // Include the meetingId
             }, {
               headers: {
                 'x-access-token': token,
@@ -425,24 +436,24 @@ const StudentDashboard = () => {
         }
 
         // Show success message
-      setSnackbar({
-        open: true,
-        message: 'Feedback submitted successfully',
-        severity: 'success'
-      });
+        setSnackbar({
+          open: true,
+          message: 'Feedback submitted successfully',
+          severity: 'success'
+        });
 
-      // Reset ratings
-      const resetRatings = {};
-      questions.forEach(q => {
-        resetRatings[q.id] = 0;
-      });
-      setRatings(resetRatings);
+        // Reset ratings
+        const resetRatings = {};
+        questions.forEach(q => {
+          resetRatings[q.id] = 0;
+        });
+        setRatings(resetRatings);
       } catch (apiError) {
         console.error('Error submitting feedback to API:', apiError);
         
         // Show error message
-          setSnackbar({
-            open: true,
+        setSnackbar({
+          open: true,
           message: 'Failed to submit feedback: ' + (apiError.response?.data?.message || 'Please try again'),
           severity: 'error'
         });
@@ -571,6 +582,26 @@ const StudentDashboard = () => {
       console.error('Error setting timer from meeting:', error);
       return false;
     }
+  };
+
+  // Helper function to format time with AM/PM
+  const formatTimeWithAMPM = (timeString) => {
+    if (!timeString) return '';
+    
+    // If already includes AM/PM, return as is
+    if (timeString.includes('AM') || timeString.includes('PM') || 
+        timeString.includes('am') || timeString.includes('pm')) {
+      return timeString;
+    }
+    
+    // Parse the time string (expected format: "HH:MM")
+    const [hours, minutes] = timeString.split(':').map(part => parseInt(part, 10));
+    if (isNaN(hours) || isNaN(minutes)) return timeString;
+    
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours % 12 || 12; // Convert 0 to 12 for 12 AM
+    
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
   // Render student profile section
@@ -746,7 +777,11 @@ const StudentDashboard = () => {
                         {meeting.title}
                           </TableCell>
                           <TableCell>{formattedDate}</TableCell>
-                          <TableCell>{`${meeting.startTime || '00:00'} - ${meeting.endTime || '00:00'}`}</TableCell>
+                          <TableCell>{meeting.startTime 
+                            ? (meeting.endTime 
+                              ? `${formatTimeWithAMPM(meeting.startTime)} - ${formatTimeWithAMPM(meeting.endTime)}`
+                              : formatTimeWithAMPM(meeting.startTime))
+                            : 'Time not specified'}</TableCell>
                           <TableCell>{departmentName}</TableCell>
                           <TableCell>
                             <Chip 
@@ -770,7 +805,7 @@ const StudentDashboard = () => {
                               variant="outlined"
                               color="primary"
                               size="small"
-                              onClick={() => fetchQuestions(meeting.id)}
+                              onClick={() => handleFetchQuestionsByMeeting(meeting.id)}
                               startIcon={<FeedbackIcon />}
                             >
                               Feedback
@@ -898,6 +933,22 @@ const StudentDashboard = () => {
       </Box>
     </Box>
   );
+
+  // Add useEffect for fetching questions
+  useEffect(() => {
+    if (activeSection === 'feedback') {
+      fetchQuestions();
+    }
+  }, [activeSection]);
+
+  // Handle fetching questions for a specific meeting
+  const handleFetchQuestionsByMeeting = (meetingId) => {
+    // First switch to the feedback section
+    setActiveSection('feedback');
+    
+    // Then fetch questions for this meeting
+    fetchQuestions(meetingId);
+  };
 
   return (
     <Box sx={{ display: 'flex' }}>

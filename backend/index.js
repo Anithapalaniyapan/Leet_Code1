@@ -2,9 +2,13 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 require('dotenv').config();
+const cron = require('node-cron');
 
 // Import database connection
 const db = require('./models');
+
+// Import meeting controller for status updates
+const meetingController = require('./controllers/meeting.controller');
 
 // Create Express app
 const app = express();
@@ -38,6 +42,17 @@ const PORT = process.env.PORT || 8080;
 // Import seeders
 const runSeeders = require('./seeders');
 
+// Setup cron job to update meeting statuses every hour
+cron.schedule('0 * * * *', async () => {
+  console.log('Running automated meeting status update check...');
+  try {
+    const result = await meetingController.updateMeetingStatuses();
+    console.log(`Meeting status update completed: ${JSON.stringify(result)}`);
+  } catch (error) {
+    console.error('Error in meeting status update cron job:', error);
+  }
+});
+
 // Sync database, run seeders, and start server
 db.sequelize.sync()
   .then(async () => {
@@ -45,6 +60,14 @@ db.sequelize.sync()
     
     // Run database seeders
     await runSeeders();
+    
+    // Run initial meeting status update
+    try {
+      const result = await meetingController.updateMeetingStatuses();
+      console.log(`Initial meeting status update completed: ${JSON.stringify(result)}`);
+    } catch (error) {
+      console.error('Error in initial meeting status update:', error);
+    }
     
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}.`);

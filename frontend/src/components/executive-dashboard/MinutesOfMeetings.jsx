@@ -145,6 +145,26 @@ const MinutesOfMeetings = ({ departments = [] }) => {
     return dept ? dept.name : `Department ${departmentId}`;
   };
 
+  // Helper function to format time with AM/PM
+  const formatTimeWithAMPM = (timeString) => {
+    if (!timeString) return '';
+    
+    // If already includes AM/PM, return as is
+    if (timeString.includes('AM') || timeString.includes('PM') || 
+        timeString.includes('am') || timeString.includes('pm')) {
+      return timeString;
+    }
+    
+    // Parse the time string (expected format: "HH:MM")
+    const [hours, minutes] = timeString.split(':').map(part => parseInt(part, 10));
+    if (isNaN(hours) || isNaN(minutes)) return timeString;
+    
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours % 12 || 12; // Convert 0 to 12 for 12 AM
+    
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  };
+
   // Helper function to format date or return null if invalid
   const formatDateOrNull = (dateString) => {
     if (!dateString) return null;

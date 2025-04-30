@@ -12,9 +12,10 @@ const initialState = {
 // Async thunk for submitting feedback
 export const submitFeedback = createAsyncThunk(
   'feedback/submit',
-  async (_, { getState, rejectWithValue }) => {
+  async (params, { getState, rejectWithValue }) => {
     try {
       const { auth, feedback, questions } = getState();
+      const { meetingId } = params || {}; // Get meetingId if provided
       
       if (!auth.token) {
         return rejectWithValue('No authentication token found');
@@ -29,7 +30,8 @@ export const submitFeedback = createAsyncThunk(
         responses.push({
           questionId: parseInt(questionId),
           rating,
-          notes: ''  // Add notes field if applicable
+          notes: '',  // Add notes field if applicable
+          meetingId: meetingId || (questionObj ? questionObj.meetingId : null) // Include meetingId
         });
       }
       

@@ -199,6 +199,30 @@ isHOD = async (req, res, next) => {
   }
 };
 
+// Check if user has any director role (academic or executive)
+isDirector = async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.userId);
+    const roles = await user.getRoles();
+    
+    req.userRoles = roles.map(role => `ROLE_${role.name.toUpperCase()}`);
+
+    for (let i = 0; i < roles.length; i++) {
+      if (roles[i].name === 'academic_director' || roles[i].name === 'executive_director') {
+        return next();
+      }
+    }
+
+    return res.status(403).send({
+      message: 'Require Director Role!'
+    });
+  } catch (error) {
+    return res.status(500).send({
+      message: 'Unable to validate Director role!'
+    });
+  }
+};
+
 const authJwt = {
   verifyToken,
   isStudent,
@@ -207,7 +231,8 @@ const authJwt = {
   isExecutiveDirector,
   isAcademicDirectorOrExecutiveDirector,
   isStudentOrStaff,
-  isHOD
+  isHOD,
+  isDirector
 };
 
 module.exports = authJwt;

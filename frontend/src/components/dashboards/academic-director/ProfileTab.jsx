@@ -1,61 +1,69 @@
 import React from 'react';
+import { useSelector } from 'react-redux';
 import {
-  Box, Typography, Paper, Avatar, Chip, Button, Grid, Divider,
-  Card, CardContent, IconButton, Container, useTheme, useMediaQuery
+  Box,
+  Paper,
+  Typography,
+  Grid,
+  Card,
+  CardContent,
+  Avatar,
+  Chip,
+  Divider,
+  Container,
+  useTheme,
+  useMediaQuery,
+  Button,
+  Stack
 } from '@mui/material';
-import { useDispatch } from 'react-redux';
-import { logout } from '../../redux/slices/authSlice';
-import { useNavigate } from 'react-router-dom';
-import EmailIcon from '@mui/icons-material/Email';
+import { blue } from '@mui/material/colors';
 import PersonIcon from '@mui/icons-material/Person';
+import EmailIcon from '@mui/icons-material/Email';
+import BadgeIcon from '@mui/icons-material/Badge';
 import WorkIcon from '@mui/icons-material/Work';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import BarChartIcon from '@mui/icons-material/BarChart';
-import FeedbackIcon from '@mui/icons-material/Feedback';
-import AssignmentIcon from '@mui/icons-material/Assignment';
-import LogoutIcon from '@mui/icons-material/Logout';
+import QuestionAnswerIcon from '@mui/icons-material/QuestionAnswer';
+import EventNoteIcon from '@mui/icons-material/EventNote';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import ArticleIcon from '@mui/icons-material/Article';
+import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 
-const Profile = ({ userProfile }) => {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
+/**
+ * Enhanced Profile tab component for displaying user information
+ */
+const ProfileTab = () => {
+  // Get user profile from Redux store
+  const { profile } = useSelector(state => state.user);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-
-  const handleLogout = () => {
-    // Clear local token
-    localStorage.removeItem('token');
-    localStorage.removeItem('userData');
-    localStorage.removeItem('userRole');
-    
-    // Dispatch the logout action
-    dispatch(logout());
-    
-    // Redirect to login
-    navigate('/login', { replace: true });
+  
+  // Format profile data for display
+  const profileData = {
+    name: profile?.fullName || profile?.name || 'User',
+    role: profile?.role || 'Academic Director',
+    id: profile?.username || profile?.id || '',
+    email: profile?.email || ''
   };
 
   // Get user's first name for more personal greeting
-  const firstName = userProfile?.name?.split(' ')[0] || 'Director';
+  const firstName = profileData.name.split(' ')[0] || 'Director';
   
-  // Use the same cover image as Academic Director dashboard
+  // Random cover image URL - education/academic themed
   const coverImage = "https://images.unsplash.com/photo-1606761568499-6d2451b23c66?q=80&w=1000&auto=format&fit=crop";
-  
-  // Format any date 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
-    return date.toLocaleDateString('en-US', options);
+
+  // Mock activity data
+  const activityData = {
+    meetingsManaged: 24,
+    questionsCreated: 18,
+    reportsGenerated: 8
   };
 
   return (
-    <Box sx={{ 
-      pb: 5,
-      bgcolor: 'background.default',
-    }}>
+    <Box sx={{ pb: 5, bgcolor: 'background.default' }}>
       {/* Cover Photo Area */}
       <Box 
-        sx={{ 
+        sx={{
           height: 200, 
           width: '100%', 
           position: 'relative',
@@ -68,8 +76,8 @@ const Profile = ({ userProfile }) => {
       >
         <Container maxWidth="lg">
           {/* Profile Avatar - positioned to overlap cover and content */}
-          <Avatar 
-            sx={{ 
+            <Avatar
+              sx={{
               width: 150, 
               height: 150, 
               border: '5px solid white',
@@ -82,28 +90,8 @@ const Profile = ({ userProfile }) => {
               boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
             }}
           >
-            {userProfile?.name?.charAt(0) || 'E'}
-          </Avatar>
-            
-          {/* Logout button - positioned in top right of cover */}
-          <Button 
-            variant="contained" 
-            color="primary" 
-            startIcon={<LogoutIcon />}
-            onClick={handleLogout}
-            sx={{ 
-              position: 'absolute',
-              top: 16,
-              right: 16,
-              bgcolor: 'rgba(255,255,255,0.2)',
-              backdropFilter: 'blur(10px)',
-              '&:hover': {
-                bgcolor: 'rgba(255,255,255,0.3)',
-              }
-            }}
-          >
-            Logout
-          </Button>
+            {profileData.name.charAt(0) || 'A'}
+            </Avatar>
         </Container>
       </Box>
 
@@ -118,10 +106,10 @@ const Profile = ({ userProfile }) => {
                 {isMobile && (
                   <>
                     <Typography variant="h4" sx={{ fontWeight: 'bold', mt: 2 }}>
-                      {userProfile?.name || 'Executive Director'}
+                      {profileData.name}
                     </Typography>
                     <Chip 
-                      label="Executive Director" 
+                      label={profileData.role} 
                       color="primary" 
                       sx={{ mt: 1, mb: 2, px: 2, py: 2.5, fontWeight: 'bold', fontSize: '1rem' }}
                     />
@@ -134,7 +122,7 @@ const Profile = ({ userProfile }) => {
                     <Box>
                       <Typography variant="body2" color="text.secondary">Email Address</Typography>
                       <Typography variant="body1" fontWeight="medium">
-                        {userProfile?.email || 'ed@shanmugha.edu.in'}
+                        {profileData.email || 'academic-director@example.com'}
                       </Typography>
                     </Box>
                   </Box>
@@ -142,32 +130,75 @@ const Profile = ({ userProfile }) => {
                   <Divider />
                   
                   <Box sx={{ display: 'flex', alignItems: 'center', px: 2 }}>
-                    <PersonIcon color="primary" sx={{ mr: 2 }} />
+                    <BadgeIcon color="primary" sx={{ mr: 2 }} />
                     <Box>
-                      <Typography variant="body2" color="text.secondary">Username</Typography>
+                      <Typography variant="body2" color="text.secondary">ID</Typography>
                       <Typography variant="body1" fontWeight="medium">
-                        {userProfile?.username || 'ED7327'}
+                        {profileData.id || 'AD1234'}
                       </Typography>
                     </Box>
                   </Box>
                 </Box>
               </CardContent>
             </Card>
+
+            {/* Quick Actions Card */}
+            <Card elevation={2} sx={{ borderRadius: 2 }}>
+              <CardContent>
+                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                  Quick Actions
+                </Typography>
+                <Stack spacing={2} sx={{ mt: 2 }}>
+                  <Button 
+                    variant="outlined" 
+                    startIcon={<CalendarMonthIcon />} 
+                    fullWidth
+                    sx={{ justifyContent: 'flex-start', textTransform: 'none', py: 1 }}
+                  >
+                    Create New Meeting
+                  </Button>
+                  <Button 
+                    variant="outlined" 
+                    startIcon={<QuestionAnswerIcon />} 
+                    fullWidth
+                    sx={{ justifyContent: 'flex-start', textTransform: 'none', py: 1 }}
+                  >
+                    Add Feedback Questions
+                  </Button>
+                  <Button 
+                    variant="outlined" 
+                    startIcon={<AssessmentIcon />} 
+                    fullWidth
+                    sx={{ justifyContent: 'flex-start', textTransform: 'none', py: 1 }}
+                  >
+                    Generate Reports
+                  </Button>
+                  <Button 
+                    variant="outlined" 
+                    startIcon={<CloudDownloadIcon />} 
+                    fullWidth
+                    sx={{ justifyContent: 'flex-start', textTransform: 'none', py: 1 }}
+                  >
+                    Download Analytics
+                  </Button>
+                </Stack>
+              </CardContent>
+            </Card>
           </Grid>
-              
+          
           {/* Right Column */}
           <Grid item xs={12} md={8}>
             {/* Welcome Section */}
             <Card elevation={2} sx={{ mb: 3, borderRadius: 2 }}>
-              <CardContent>
+                  <CardContent>
                 {/* On larger screens, show name and title here */}
                 {!isMobile && (
                   <>
                     <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                      {userProfile?.name || 'Executive Director'}
+                      {profileData.name}
                     </Typography>
                     <Chip 
-                      label="Executive Director" 
+                      label={profileData.role} 
                       color="primary" 
                       sx={{ mt: 1, mb: 3, px: 2, py: 2.5, fontWeight: 'bold', fontSize: '1rem' }}
                     />
@@ -179,23 +210,68 @@ const Profile = ({ userProfile }) => {
                 </Typography>
                 
                 <Typography variant="body1" sx={{ my: 2, color: 'text.secondary' }}>
-                  As an Executive Director, you play a crucial role in our institution's success. Your dashboard provides comprehensive oversight 
-                  of all departments and academic activities. From here, you can monitor feedback metrics, review meeting minutes, and generate reports 
-                  to guide strategic decision-making.
+                  As an Academic Director, you are responsible for overseeing the academic operations and ensuring quality standards across departments. Your dashboard provides tools to manage feedback collection, monitor department performance, and implement improvements based on stakeholder input.
                 </Typography>
+                  </CardContent>
+                </Card>
+
+            {/* Activity Overview */}
+            <Card elevation={2} sx={{ mb: 3, borderRadius: 2 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                  <AssessmentIcon sx={{ mr: 1 }} /> Activity Overview
+                </Typography>
+                
+                <Grid container spacing={3} sx={{ mt: 1 }}>
+                  <Grid item xs={12} sm={4}>
+                    <Box sx={{ textAlign: 'center', p: 2, border: `1px solid ${blue[100]}`, borderRadius: 2 }}>
+                      <EventNoteIcon color="primary" sx={{ fontSize: 36, mb: 1 }} />
+                      <Typography variant="h4" color="primary" fontWeight="bold">
+                        {activityData.meetingsManaged}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Meetings Managed
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={4}>
+                    <Box sx={{ textAlign: 'center', p: 2, border: `1px solid ${blue[100]}`, borderRadius: 2 }}>
+                      <QuestionAnswerIcon color="secondary" sx={{ fontSize: 36, mb: 1 }} />
+                      <Typography variant="h4" color="secondary" fontWeight="bold">
+                        {activityData.questionsCreated}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Questions Created
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={4}>
+                    <Box sx={{ textAlign: 'center', p: 2, border: `1px solid ${blue[100]}`, borderRadius: 2 }}>
+                      <ArticleIcon sx={{ fontSize: 36, mb: 1, color: theme.palette.info.main }} />
+                      <Typography variant="h4" fontWeight="bold" sx={{ color: theme.palette.info.main }}>
+                        {activityData.reportsGenerated}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Reports Generated
+                      </Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
               </CardContent>
             </Card>
 
-            {/* System Access Card */}
+            {/* Responsibilities Card */}
             <Card elevation={2} sx={{ borderRadius: 2 }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
-                  <WorkIcon sx={{ mr: 1 }} /> System Access & Privileges
+                  <WorkIcon sx={{ mr: 1 }} /> Your Dashboard Features
                 </Typography>
                 
                 <Box sx={{ bgcolor: 'background.paper', borderRadius: 2, p: 3, boxShadow: 'inset 0 0 5px rgba(0,0,0,0.05)' }}>
                   <Typography variant="body1" fontWeight="medium" color="text.primary" gutterBottom>
-                    As Executive Director, you have access to all system features including:
+                    As Academic Director, you have access to these key features:
                   </Typography>
                   
                   <Grid container spacing={2} sx={{ mt: 1 }}>
@@ -217,13 +293,13 @@ const Profile = ({ userProfile }) => {
                           cursor: 'pointer'
                         }
                       }}>
-                        <BarChartIcon sx={{ fontSize: 40, mb: 1 }} />
+                        <EventNoteIcon sx={{ fontSize: 40, mb: 1 }} />
                         <Typography variant="body2" fontWeight="bold">
-                          View & download all analytics and reports
+                          Manage feedback meetings and schedules
                         </Typography>
                       </Box>
                     </Grid>
-              
+                    
                     <Grid item xs={12} sm={4}>
                       <Box sx={{ 
                         p: 2, 
@@ -242,13 +318,13 @@ const Profile = ({ userProfile }) => {
                           cursor: 'pointer'
                         }
                       }}>
-                        <FeedbackIcon sx={{ fontSize: 40, mb: 1 }} />
+                        <QuestionAnswerIcon sx={{ fontSize: 40, mb: 1 }} />
                         <Typography variant="body2" fontWeight="bold">
-                          Monitor feedback across all departments
+                          Create and manage feedback questions
                         </Typography>
                       </Box>
                     </Grid>
-              
+                    
                     <Grid item xs={12} sm={4}>
                       <Box sx={{ 
                         p: 2, 
@@ -267,9 +343,9 @@ const Profile = ({ userProfile }) => {
                           cursor: 'pointer'
                         }
                       }}>
-                        <AssignmentIcon sx={{ fontSize: 40, mb: 1 }} />
+                        <BarChartIcon sx={{ fontSize: 40, mb: 1 }} />
                         <Typography variant="body2" fontWeight="bold">
-                          Access all meeting minutes and HOD responses
+                          View analytics and generate reports
                         </Typography>
                       </Box>
                     </Grid>
@@ -284,4 +360,4 @@ const Profile = ({ userProfile }) => {
   );
 };
 
-export default Profile; 
+export default ProfileTab; 

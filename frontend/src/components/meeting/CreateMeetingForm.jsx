@@ -14,7 +14,47 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 
-const CreateMeetingForm = ({ onMeetingCreated }) => {
+const CreateMeetingForm = ({ departments = [], handleSubmit, handleCancel, initialData, isEditing }) => {
+  // Enhanced function to convert role to string format
+  const convertRoleToString = (role) => {
+    if (role === 1 || role === '1' || role === 'student' || (typeof role === 'string' && role.toLowerCase() === 'student')) {
+      return 'student';
+    } else if (role === 2 || role === '2' || role === 'staff' || (typeof role === 'string' && role.toLowerCase() === 'staff')) {
+      return 'staff';
+    }
+    
+    // Try to extract role from object
+    if (typeof role === 'object' && role !== null) {
+      if (role.id === 1 || role.id === '1' || (role.name && role.name.toLowerCase().includes('student'))) {
+        return 'student';
+      } else if (role.id === 2 || role.id === '2' || (role.name && role.name.toLowerCase().includes('staff'))) {
+        return 'staff';
+      }
+    }
+    
+    // Default to empty if we can't determine the role
+    return '';
+  };
+  
+  // Helper function to normalize department ID
+  const normalizeDepartmentId = (deptId) => {
+    if (deptId === null || deptId === undefined) return '';
+    
+    // If it's already a string, return it
+    if (typeof deptId === 'string') return deptId;
+    
+    // If it's a number, convert to string
+    if (typeof deptId === 'number') return deptId.toString();
+    
+    // Try to get ID from department object
+    if (typeof deptId === 'object' && deptId !== null) {
+      if (deptId.id) return deptId.id.toString();
+    }
+    
+    // Fall back to empty string
+    return '';
+  };
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -26,7 +66,6 @@ const CreateMeetingForm = ({ onMeetingCreated }) => {
     year: ''
   });
 
-  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [snackbar, setSnackbar] = useState({
@@ -35,24 +74,25 @@ const CreateMeetingForm = ({ onMeetingCreated }) => {
     severity: 'info'
   });
 
-  useEffect(() => {
-    fetchDepartments();
-  }, []);
+  // Add console.log to inspect departments prop
+  console.log('CreateMeetingForm departments:', departments);
 
-  const fetchDepartments = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:8080/api/departments', {
-        headers: {
-          'x-access-token': token
-        }
+  // Initialize form with initial data if provided (for editing)
+  useEffect(() => {
+    if (initialData) {
+      console.log('Initializing form with data:', initialData);
+      setFormData({
+        title: initialData.title || '',
+        description: initialData.description || '',
+        meetingDate: initialData.meetingDate || initialData.date || '',
+        startTime: initialData.startTime || '',
+        endTime: initialData.endTime || '',
+        role: convertRoleToString(initialData.role || initialData.roleId),
+        departmentId: normalizeDepartmentId(initialData.departmentId),
+        year: initialData.year?.toString() || ''
       });
-      setDepartments(response.data);
-    } catch (error) {
-      console.error('Error fetching departments:', error);
-      setError('Failed to load departments');
     }
-  };
+  }, [initialData]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -62,7 +102,7 @@ const CreateMeetingForm = ({ onMeetingCreated }) => {
     }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -79,11 +119,6 @@ const CreateMeetingForm = ({ onMeetingCreated }) => {
         throw new Error('Please select a year for student meeting');
       }
 
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
       // Format the data for API
       const meetingData = {
         title: formData.title,
@@ -96,43 +131,36 @@ const CreateMeetingForm = ({ onMeetingCreated }) => {
         year: formData.role === 'student' ? parseInt(formData.year) : null
       };
 
-      const response = await axios.post('http://localhost:8080/api/meetings', meetingData, {
-        headers: {
-          'x-access-token': token,
-          'Content-Type': 'application/json'
-        }
-      });
+      // Call parent's handleSubmit function
+      await handleSubmit(meetingData);
 
       // Show success message
       setSnackbar({
         open: true,
-        message: 'Meeting created successfully',
+        message: isEditing ? 'Meeting updated successfully' : 'Meeting created successfully',
         severity: 'success'
       });
 
-      // Reset form
-      setFormData({
-        title: '',
-        description: '',
-        meetingDate: '',
-        startTime: '',
-        endTime: '',
-        role: '',
-        departmentId: '',
-        year: ''
-      });
-
-      // Notify parent component
-      if (onMeetingCreated) {
-        onMeetingCreated(response.data);
+      // Reset form if not editing
+      if (!isEditing) {
+        setFormData({
+          title: '',
+          description: '',
+          meetingDate: '',
+          startTime: '',
+          endTime: '',
+          role: '',
+          departmentId: '',
+          year: ''
+        });
       }
 
     } catch (error) {
-      console.error('Error creating meeting:', error);
-      setError(error.response?.data?.message || error.message);
+      console.error(isEditing ? 'Error updating meeting:' : 'Error creating meeting:', error);
+      setError(error.message || 'An error occurred');
       setSnackbar({
         open: true,
-        message: `Error: ${error.response?.data?.message || error.message}`,
+        message: `Error: ${error.message || 'An error occurred'}`,
         severity: 'error'
       });
     } finally {
@@ -145,7 +173,7 @@ const CreateMeetingForm = ({ onMeetingCreated }) => {
   };
 
   return (
-    <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+    <Box component="form" onSubmit={handleFormSubmit} sx={{ mt: 2 }}>
       <Grid container spacing={2}>
         <Grid item xs={12}>
           <TextField
@@ -233,11 +261,17 @@ const CreateMeetingForm = ({ onMeetingCreated }) => {
               onChange={handleChange}
               label="Department"
             >
-              {departments.map((dept) => (
-                <MenuItem key={dept.id} value={dept.id}>
-                  {dept.name}
+              {departments && departments.length > 0 ? (
+                departments.map((dept) => (
+                  <MenuItem key={dept.id} value={dept.id.toString()}>
+                    {dept.name || `Department ${dept.id}`}
+                  </MenuItem>
+                ))
+              ) : (
+                <MenuItem value="" disabled>
+                  No departments available
                 </MenuItem>
-              ))}
+              )}
             </Select>
           </FormControl>
         </Grid>
@@ -262,15 +296,25 @@ const CreateMeetingForm = ({ onMeetingCreated }) => {
         )}
 
         <Grid item xs={12}>
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            disabled={loading}
-            sx={{ mt: 2 }}
-          >
-            {loading ? 'Creating...' : 'Create Meeting'}
-          </Button>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
+            {handleCancel && (
+              <Button
+                variant="outlined"
+                onClick={handleCancel}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+            )}
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              disabled={loading}
+            >
+              {loading ? (isEditing ? 'Updating...' : 'Creating...') : (isEditing ? 'Update Meeting' : 'Create Meeting')}
+            </Button>
+          </Box>
         </Grid>
       </Grid>
 
@@ -286,6 +330,15 @@ const CreateMeetingForm = ({ onMeetingCreated }) => {
       </Snackbar>
     </Box>
   );
+};
+
+// Default props
+CreateMeetingForm.defaultProps = {
+  departments: [],
+  handleSubmit: () => {},
+  handleCancel: null,
+  initialData: null,
+  isEditing: false
 };
 
 export default CreateMeetingForm; 

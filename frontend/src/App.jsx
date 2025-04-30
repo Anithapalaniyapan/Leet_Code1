@@ -19,6 +19,12 @@ const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('isAuthenticated') === 'true');
   const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || '');
 
+  // Immediately synchronize Redux auth state with localStorage
+  useEffect(() => {
+    // Synchronize Redux auth state with localStorage on mount
+    dispatch(syncAuthState());
+  }, [dispatch]);
+
   // Sync state with both localStorage and Redux
   useEffect(() => {
     const storedAuth = localStorage.getItem('isAuthenticated') === 'true';
@@ -26,10 +32,7 @@ const App = () => {
     
     setIsAuthenticated(storedAuth || reduxIsAuthenticated);
     setUserRole(storedRole || reduxUserRole || '');
-    
-    // Sync Redux state with localStorage if needed
-    dispatch(syncAuthState());
-  }, [reduxIsAuthenticated, reduxUserRole, dispatch]);
+  }, [reduxIsAuthenticated, reduxUserRole]);
 
   // Modified ProtectedRoute to handle case sensitivity in role comparison
   // and use both Redux and local state

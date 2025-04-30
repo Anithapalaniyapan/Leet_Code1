@@ -25,13 +25,16 @@ export const fetchUserProfile = createAsyncThunk(
     try {
       const { auth } = getState();
       
-      if (!auth.token) {
+      // Get token from either Redux state or localStorage
+      let token = auth.token || localStorage.getItem('token');
+      
+      if (!token) {
         return rejectWithValue('No authentication token found');
       }
       
       const response = await axios.get('http://localhost:8080/api/users/profile', {
         headers: {
-          'x-access-token': auth.token
+          'x-access-token': token
         }
       });
       
@@ -40,6 +43,7 @@ export const fetchUserProfile = createAsyncThunk(
       
       return response.data;
     } catch (error) {
+      console.error('Error fetching profile:', error);
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch user profile');
     }
   }
@@ -52,18 +56,27 @@ export const fetchAllUsers = createAsyncThunk(
     try {
       const { auth } = getState();
       
-      if (!auth.token) {
+      // First try to get token from Redux state
+      let token = auth.token;
+      
+      // If not available, try localStorage
+      if (!token) {
+        token = localStorage.getItem('token');
+      }
+      
+      if (!token) {
         return rejectWithValue('No authentication token found');
       }
       
       const response = await axios.get('http://localhost:8080/api/users/all', {
         headers: {
-          'x-access-token': auth.token
+          'x-access-token': token
         }
       });
       
       return response.data;
     } catch (error) {
+      console.error('Error fetching all users:', error);
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch users');
     }
   }
@@ -76,18 +89,27 @@ export const fetchUserById = createAsyncThunk(
     try {
       const { auth } = getState();
       
-      if (!auth.token) {
+      // First try to get token from Redux state
+      let token = auth.token;
+      
+      // If not available, try localStorage
+      if (!token) {
+        token = localStorage.getItem('token');
+      }
+      
+      if (!token) {
         return rejectWithValue('No authentication token found');
       }
       
       const response = await axios.get(`http://localhost:8080/api/users/${userId}`, {
         headers: {
-          'x-access-token': auth.token
+          'x-access-token': token
         }
       });
       
       return response.data;
     } catch (error) {
+      console.error('Error fetching user by ID:', error);
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch user');
     }
   }
@@ -100,7 +122,15 @@ export const updateUserProfile = createAsyncThunk(
     try {
       const { auth } = getState();
       
-      if (!auth.token) {
+      // First try to get token from Redux state
+      let token = auth.token;
+      
+      // If not available, try localStorage
+      if (!token) {
+        token = localStorage.getItem('token');
+      }
+      
+      if (!token) {
         return rejectWithValue('No authentication token found');
       }
       
@@ -111,7 +141,7 @@ export const updateUserProfile = createAsyncThunk(
       
       const response = await axios.put(`http://localhost:8080/api/users/${userId}`, userData, {
         headers: {
-          'x-access-token': auth.token
+          'x-access-token': token
         }
       });
       
@@ -121,6 +151,7 @@ export const updateUserProfile = createAsyncThunk(
       
       return updatedProfile;
     } catch (error) {
+      console.error('Error updating user profile:', error);
       return rejectWithValue(error.response?.data?.message || 'Failed to update user profile');
     }
   }

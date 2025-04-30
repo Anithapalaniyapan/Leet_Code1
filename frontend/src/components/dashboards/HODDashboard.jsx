@@ -62,20 +62,74 @@ const HODDashboard = () => {
     { id: 'minutes', label: "Minutes of Meetings", icon: <DescriptionIcon /> }
   ];
 
-  // Helper function to get role name from roleId
-  const getRoleName = (roleId) => {
-    switch (roleId) {
-      case 1:
-        return 'Student';
-      case 2:
-        return 'Staff';
-      case 3:
-        return 'HOD';
-      case 4:
-        return 'Director';
-      default:
-        return 'All Roles';
+  // Helper function to get role name from roleId - updated to handle different formats
+  const getRoleName = (role) => {
+    // Add debugging 
+    console.log('HOD Dashboard - Role conversion debug:', { 
+      role, 
+      type: typeof role 
+    });
+    
+    // Handle numeric role values
+    if (role === 1 || role === '1') {
+      return 'Student';
+    } else if (role === 2 || role === '2') {
+      return 'Staff';
+    } else if (role === 3 || role === '3') {
+      return 'HOD';
+    } else if (role === 4 || role === '4') {
+      return 'Director';
     }
+    
+    // Handle string values
+    if (typeof role === 'string') {
+      const roleStr = role.toLowerCase();
+      if (roleStr === 'student' || roleStr.includes('student')) {
+        return 'Student';
+      } else if (roleStr === 'staff' || roleStr.includes('staff') || roleStr.includes('faculty')) {
+        return 'Staff';
+      } else if (roleStr === 'hod' || roleStr.includes('hod') || roleStr.includes('head')) {
+        return 'HOD';
+      } else if (roleStr === 'director' || roleStr.includes('director') || roleStr.includes('academic director')) {
+        return 'Director';
+      }
+    }
+    
+    // Default case
+    return 'All Roles';
+  };
+
+  // Helper function to get role ID from any role format
+  const getRoleId = (meeting) => {
+    // Check for direct roleId property first
+    if (meeting.roleId) {
+      return meeting.roleId;
+    }
+    
+    // Then check role property
+    if (meeting.role !== undefined) {
+      // If it's a number, return it
+      if (typeof meeting.role === 'number') {
+        return meeting.role;
+      }
+      
+      // If it's a string, convert appropriately
+      if (typeof meeting.role === 'string') {
+        const roleStr = meeting.role.toLowerCase();
+        if (roleStr === 'student' || roleStr.includes('student') || roleStr === '1') {
+          return 1;
+        } else if (roleStr === 'staff' || roleStr.includes('staff') || roleStr === '2') {
+          return 2;
+        } else if (roleStr === 'hod' || roleStr.includes('hod') || roleStr === '3') {
+          return 3;
+        } else if (roleStr === 'director' || roleStr.includes('director') || roleStr === '4') {
+          return 4;
+        }
+      }
+    }
+    
+    // Default
+    return 0;
   };
 
   // Fetch meetings for HOD's department
@@ -456,17 +510,12 @@ const HODDashboard = () => {
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={
-                        meeting.roleId === 1 ? 'Student' :
-                        meeting.roleId === 2 ? 'Staff' :
-                        meeting.roleId === 3 ? 'HOD' :
-                        meeting.roleId === 4 ? 'Director' : 'All Roles'
-                      }
+                      label={getRoleName(meeting.role || meeting.roleId)}
                       color={
-                        meeting.roleId === 1 ? 'primary' :
-                        meeting.roleId === 2 ? 'secondary' :
-                        meeting.roleId === 3 ? 'success' :
-                        meeting.roleId === 4 ? 'warning' : 'default'
+                        getRoleId(meeting) === 1 ? 'primary' :
+                        getRoleId(meeting) === 2 ? 'secondary' :
+                        getRoleId(meeting) === 3 ? 'success' :
+                        getRoleId(meeting) === 4 ? 'warning' : 'default'
                       }
                       size="small"
                       sx={{ 

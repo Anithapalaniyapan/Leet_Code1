@@ -14,18 +14,22 @@ export const fetchAllQuestions = createAsyncThunk(
     try {
       const { auth } = getState();
       
-      if (!auth.token) {
+      // Get token from either Redux state or localStorage
+      let token = auth.token || localStorage.getItem('token');
+      
+      if (!token) {
         return rejectWithValue('No authentication token found');
       }
       
       const response = await axios.get('http://localhost:8080/api/questions', {
         headers: {
-          'x-access-token': auth.token
+          'x-access-token': token
         }
       });
       
       return response.data;
     } catch (error) {
+      console.error('Error fetching all questions:', error);
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch questions');
     }
   }
@@ -38,7 +42,15 @@ export const fetchQuestionsByDeptAndYear = createAsyncThunk(
     try {
       const { auth } = getState();
       
-      if (!auth.token) {
+      // First try to get token from Redux state
+      let token = auth.token;
+      
+      // If not available, try localStorage
+      if (!token) {
+        token = localStorage.getItem('token');
+      }
+      
+      if (!token) {
         return rejectWithValue('No authentication token found');
       }
       
@@ -50,12 +62,13 @@ export const fetchQuestionsByDeptAndYear = createAsyncThunk(
       
       const response = await axios.get(url.toString(), {
         headers: {
-          'x-access-token': auth.token
+          'x-access-token': token
         }
       });
       
       return response.data;
     } catch (error) {
+      console.error('Error fetching questions by department and year:', error);
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch questions');
     }
   }
@@ -68,18 +81,33 @@ export const createQuestion = createAsyncThunk(
     try {
       const { auth } = getState();
       
-      if (!auth.token) {
+      // First try to get token from Redux state
+      let token = auth.token;
+      
+      // If not available, try localStorage
+      if (!token) {
+        token = localStorage.getItem('token');
+      }
+      
+      if (!token) {
         return rejectWithValue('No authentication token found');
       }
       
-      const response = await axios.post('http://localhost:8080/api/questions', questionData, {
+      // Format data for the API, including meetingId if provided
+      const apiQuestionData = {
+        ...questionData,
+        meetingId: questionData.meetingId || null,
+      };
+      
+      const response = await axios.post('http://localhost:8080/api/questions', apiQuestionData, {
         headers: {
-          'x-access-token': auth.token
+          'x-access-token': token
         }
       });
       
       return response.data;
     } catch (error) {
+      console.error('Error creating question:', error);
       return rejectWithValue(error.response?.data?.message || 'Failed to create question');
     }
   }
@@ -96,7 +124,13 @@ export const updateQuestion = createAsyncThunk(
         return rejectWithValue('No authentication token found');
       }
       
-      const response = await axios.put(`http://localhost:8080/api/questions/${questionId}`, questionData, {
+      // Format data for the API, including meetingId if provided
+      const apiQuestionData = {
+        ...questionData,
+        meetingId: questionData.meetingId || null,
+      };
+      
+      const response = await axios.put(`http://localhost:8080/api/questions/${questionId}`, apiQuestionData, {
         headers: {
           'x-access-token': auth.token
         }
@@ -177,7 +211,27 @@ const questionSlice = createSlice({
         state.error = null;
       })
       .addCase(createQuestion.fulfilled, (state, action) => {
-        state.questions.push(action.payload);
+        // First check if response includes a nested question object with all relations
+        if (action.payload && action.payload.question) {
+          // The server returned a nested structure with the question inside
+          const newQuestion = action.payload.question;
+          
+          // Ensure meeting relationship is preserved
+          if (newQuestion.meetingId && action.payload.meeting) {
+            // If the API returned meeting info separately, attach it to the question
+            newQuestion.meeting = action.payload.meeting;
+          }
+          
+          // Log to help with debugging
+          console.log("Adding new question with meeting to state:", newQuestion);
+          
+          // Add the new question to the state
+          state.questions.push(newQuestion);
+        } else {
+          // The server returned the question directly
+          console.log("Adding new question directly to state:", action.payload);
+          state.questions.push(action.payload);
+        }
         state.loading = false;
       })
       .addCase(createQuestion.rejected, (state, action) => {
@@ -191,9 +245,20 @@ const questionSlice = createSlice({
         state.error = null;
       })
       .addCase(updateQuestion.fulfilled, (state, action) => {
-        const index = state.questions.findIndex(q => q.id === action.payload.id);
+        const updatedQuestion = action.payload;
+        
+        // Log the updated question for debugging
+        console.log("Updating question in Redux state:", updatedQuestion);
+        
+        const index = state.questions.findIndex(q => q.id === updatedQuestion.id);
         if (index !== -1) {
-          state.questions[index] = action.payload;
+          // Preserve any existing meeting relationship if it's not in the updated data
+          if (!updatedQuestion.meeting && state.questions[index].meeting && updatedQuestion.meetingId === state.questions[index].meetingId) {
+            updatedQuestion.meeting = state.questions[index].meeting;
+          }
+          
+          // Update the question in state
+          state.questions[index] = updatedQuestion;
         }
         state.loading = false;
       })

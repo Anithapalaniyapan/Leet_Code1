@@ -33,6 +33,16 @@ exports.createQuestion = async (req, res) => {
       year = req.body.year;
     }
 
+    // Check if meetingId is provided and valid
+    let meetingId = null;
+    if (req.body.meetingId) {
+      const meeting = await db.meeting.findByPk(req.body.meetingId);
+      if (!meeting) {
+        return res.status(404).send({ message: 'Meeting not found' });
+      }
+      meetingId = req.body.meetingId;
+    }
+
     // Create question
     const question = await Question.create({
       text: req.body.text,
@@ -40,39 +50,32 @@ exports.createQuestion = async (req, res) => {
       departmentId: req.body.departmentId,
       createdBy: req.userId,
       role: role,
-      active: true
+      active: true,
+      meetingId: meetingId // Add meetingId to the question
     });
 
     // Fetch the created question with department info
     const questionWithDept = await Question.findByPk(question.id, {
-      include: [{
-        model: Department,
-        as: 'department',
-        attributes: ['id', 'name']
-      }]
+      include: [
+        {
+          model: Department,
+          as: 'department',
+          attributes: ['id', 'name']
+        },
+        {
+          model: db.meeting,
+          as: 'meeting',
+          attributes: ['id', 'title', 'meetingDate']
+        }
+      ]
     });
 
-    // Format response
-    const formattedQuestion = {
-      id: questionWithDept.id,
-      text: questionWithDept.text,
-      targetRole: questionWithDept.role,
-      departmentId: questionWithDept.departmentId,
-      department: questionWithDept.department ? questionWithDept.department.name : null,
-      year: questionWithDept.year,
-      roleId: questionWithDept.role === 'student' ? 1 : questionWithDept.role === 'staff' ? 2 : 3,
-      active: questionWithDept.active
-    };
-
-    const newQuestionWithDetails = {
-      ...formattedQuestion,
-      role: questionWithDept.role,
-      year: questionWithDept.role === 'student' ? parseInt(year) : null
-    };
-
-    res.status(201).send(newQuestionWithDetails);
+    res.status(201).send({
+      message: 'Question created successfully',
+      question: questionWithDept
+    });
   } catch (error) {
-    console.error('Error in createQuestion:', error);
+    console.error('Error creating question:', error);
     res.status(500).send({ message: error.message });
   }
 };
@@ -265,15 +268,34 @@ exports.updateQuestion = async (req, res) => {
 exports.deleteQuestion = async (req, res) => {
   try {
     const id = req.params.id;
+    
+    // Check if user is an Academic Director
+    if (!req.userRoles.includes('ROLE_ACADEMIC_DIRECTOR') && !req.userRoles.includes('ROLE_EXECUTIVE_DIRECTOR')) {
+      return res.status(403).send({ message: 'Only Academic Directors or Executive Directors can delete questions' });
+    }
+    
     const question = await Question.findByPk(id);
 
     if (!question) {
       return res.status(404).send({ message: 'Question not found' });
     }
 
+    // Delete related feedback first
+    await db.feedback.destroy({
+      where: { questionId: id }
+    });
+    
+    console.log(`Deleted feedback for question with ID: ${id}`);
+
+    // Then delete the question
     await question.destroy();
-    res.status(200).send({ message: 'Question deleted successfully' });
+    
+    res.status(200).send({ 
+      message: 'Question and related feedback deleted successfully',
+      deletedQuestionId: id
+    });
   } catch (error) {
+    console.error('Error deleting question:', error);
     res.status(500).send({ message: error.message });
   }
 };
@@ -294,6 +316,55 @@ exports.getQuestionsByCreator = async (req, res) => {
 
     res.status(200).send(questions);
   } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+};
+
+// Get questions by meeting ID
+exports.getQuestionsByMeeting = async (req, res) => {
+  try {
+    const meetingId = req.params.meetingId;
+    
+    if (!meetingId) {
+      return res.status(400).send({ message: 'Meeting ID is required' });
+    }
+    
+    // Check if meeting exists
+    const meeting = await db.meeting.findByPk(meetingId);
+    if (!meeting) {
+      return res.status(404).send({ message: 'Meeting not found' });
+    }
+    
+    // Get questions for this meeting
+    const questions = await Question.findAll({
+      where: { 
+        meetingId: meetingId,
+        active: true
+      },
+      include: [{
+        model: Department,
+        as: 'department',
+        attributes: ['id', 'name']
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+    
+    // Format questions for frontend
+    const formattedQuestions = questions.map(q => ({
+      id: q.id,
+      text: q.text,
+      targetRole: q.role,
+      departmentId: q.departmentId,
+      department: q.department ? q.department.name : null,
+      year: q.year,
+      roleId: q.role === 'student' ? 1 : q.role === 'staff' ? 2 : 3,
+      active: q.active,
+      meetingId: q.meetingId
+    }));
+    
+    res.status(200).send(formattedQuestions);
+  } catch (error) {
+    console.error('Error fetching questions by meeting:', error);
     res.status(500).send({ message: error.message });
   }
 };

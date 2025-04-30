@@ -65,4 +65,24 @@ module.exports = function(app) {
     [authJwt.verifyToken, authJwt.isAcademicDirector],
     controller.deleteMeeting
   );
+  
+  // Manually trigger meeting status updates - restricted to Academic and Executive Directors
+  app.post(
+    '/api/meetings/update-statuses',
+    [authJwt.verifyToken, authJwt.isDirector],
+    async (req, res) => {
+      try {
+        const result = await controller.updateMeetingStatuses();
+        res.status(200).send({
+          message: 'Meeting statuses updated successfully',
+          result
+        });
+      } catch (error) {
+        res.status(500).send({ 
+          message: 'Failed to update meeting statuses',
+          error: error.message 
+        });
+      }
+    }
+  );
 };

@@ -35,7 +35,7 @@ exports.submitFeedback = async (req, res) => {
       return res.status(403).send({ message: 'You cannot submit feedback for a different department' });
     }
 
-    if (question.year !== user.year) {
+    if (question.year !== null && question.year !== user.year) {
       return res.status(403).send({ message: 'You cannot submit feedback for a different year' });
     }
     
@@ -60,12 +60,16 @@ exports.submitFeedback = async (req, res) => {
       }
     });
 
+    // Determine meetingId - use provided, or get from question, or null
+    let meetingId = req.body.meetingId || question.meetingId || null;
+
     if (existingFeedback) {
       // Update existing feedback
       await existingFeedback.update({
         rating: req.body.rating,
         notes: req.body.notes || existingFeedback.notes,
-        submittedAt: new Date()
+        submittedAt: new Date(),
+        meetingId: meetingId
       });
 
       return res.status(200).send({
@@ -74,20 +78,37 @@ exports.submitFeedback = async (req, res) => {
       });
     }
 
-    // Create new feedback with optional meetingId
+    // Create new feedback
     const feedback = await Feedback.create({
       rating: req.body.rating,
       notes: req.body.notes,
       userId: req.userId,
       questionId: req.body.questionId,
-      meetingId: req.body.meetingId || null // Add support for meetingId
+      meetingId: meetingId
     });
+
+    // If this feedback is for a meeting, update the attendee record
+    if (meetingId) {
+      try {
+        const attendee = await db.meetingAttendee.findOne({
+          where: { meetingId, userId: req.userId }
+        });
+        
+        if (attendee) {
+          await attendee.update({ feedbackSubmitted: true });
+        }
+      } catch (attendeeError) {
+        console.error('Error updating meeting attendee record:', attendeeError);
+        // Don't fail the whole request if this part fails
+      }
+    }
 
     res.status(201).send({
       message: 'Feedback submitted successfully',
       feedback: feedback
     });
   } catch (error) {
+    console.error('Error submitting feedback:', error);
     res.status(500).send({ message: error.message });
   }
 };
@@ -851,6 +872,104 @@ exports.generateIndividualReportExcel = async (req, res) => {
     res.end();
   } catch (error) {
     console.error('Error generating individual report Excel:', error);
+    res.status(500).send({ message: error.message });
+  }
+};
+
+// Get feedback by meeting
+exports.getFeedbackByMeeting = async (req, res) => {
+  try {
+    const meetingId = req.params.meetingId;
+    
+    if (!meetingId) {
+      return res.status(400).send({ message: 'Meeting ID is required' });
+    }
+    
+    // Check if meeting exists
+    const meeting = await db.meeting.findByPk(meetingId);
+    if (!meeting) {
+      return res.status(404).send({ message: 'Meeting not found' });
+    }
+    
+    // Check if user has proper permissions
+    // Academic directors, executive directors, and HODs can view all feedback
+    // Students and staff can only view their own feedback
+    let whereConditions = { meetingId: meetingId };
+    
+    // If not a director or HOD, only show user's own feedback
+    if (!req.userRoles.includes('ROLE_ACADEMIC_DIRECTOR') && 
+        !req.userRoles.includes('ROLE_EXECUTIVE_DIRECTOR') &&
+        !req.userRoles.includes('ROLE_HOD')) {
+      whereConditions.userId = req.userId;
+    }
+    
+    const feedback = await Feedback.findAll({
+      where: whereConditions,
+      include: [
+        {
+          model: Question,
+          as: 'question',
+          attributes: ['id', 'text', 'role', 'year'],
+          include: [{
+            model: Department,
+            as: 'department',
+            attributes: ['id', 'name']
+          }]
+        },
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'username', 'fullName', 'year', 'departmentId'],
+          include: [{
+            model: Department,
+            as: 'department',
+            attributes: ['id', 'name']
+          }]
+        }
+      ],
+      order: [['submittedAt', 'DESC']]
+    });
+    
+    // Calculate stats if user has permissions
+    let stats = null;
+    if (req.userRoles.includes('ROLE_ACADEMIC_DIRECTOR') || 
+        req.userRoles.includes('ROLE_EXECUTIVE_DIRECTOR') ||
+        req.userRoles.includes('ROLE_HOD')) {
+      
+      // Group by question and calculate average ratings
+      const questionStats = await Feedback.findAll({
+        where: { meetingId: meetingId },
+        attributes: [
+          'questionId',
+          [db.sequelize.fn('AVG', db.sequelize.col('rating')), 'averageRating'],
+          [db.sequelize.fn('COUNT', db.sequelize.col('id')), 'responseCount']
+        ],
+        group: ['questionId'],
+        include: [{
+          model: Question,
+          as: 'question',
+          attributes: ['text', 'role', 'year']
+        }]
+      });
+      
+      stats = {
+        totalResponses: feedback.length,
+        averageRating: feedback.reduce((sum, item) => sum + item.rating, 0) / (feedback.length || 1),
+        questionBreakdown: questionStats.map(stat => ({
+          questionId: stat.questionId,
+          questionText: stat.question.text,
+          averageRating: parseFloat(stat.dataValues.averageRating).toFixed(1),
+          responseCount: parseInt(stat.dataValues.responseCount)
+        }))
+      };
+    }
+    
+    res.status(200).send({
+      feedback,
+      stats
+    });
+  } catch (error) {
+    console.error('Error fetching feedback by meeting:', error);
     res.status(500).send({ message: error.message });
   }
 };
