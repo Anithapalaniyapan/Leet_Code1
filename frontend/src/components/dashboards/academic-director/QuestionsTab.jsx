@@ -64,7 +64,7 @@ const QuestionsTab = ({ isDataPreloaded }) => {
   const [newQuestion, setNewQuestion] = useState('');
   const [targetRole, setTargetRole] = useState('');
   const [department, setDepartment] = useState('');
-  const [year, setYear] = useState('4');
+  const [year, setYear] = useState('');
   const [editQuestionId, setEditQuestionId] = useState(null);
   const [selectedMeeting, setSelectedMeeting] = useState('');
   const [error, setError] = useState('');
@@ -107,7 +107,7 @@ const QuestionsTab = ({ isDataPreloaded }) => {
     ...allMeetings
   ].filter(meeting => meeting && meeting.id); // Ensure we only have valid meetings
   
-  // Filter to show only scheduled meetings
+  // Filter to show only scheduled/active meetings (not completed)
   const scheduledMeetings = effectiveMeetings.filter(m => {
     // Case insensitive status check
     const status = m.status ? m.status.toLowerCase() : '';
@@ -192,8 +192,6 @@ const QuestionsTab = ({ isDataPreloaded }) => {
     setTargetRole(e.target.value);
     if (e.target.value !== 'student' && year) {
       setYear('');
-    } else if (e.target.value === 'student' && !year) {
-      setYear('4');
     }
   };
 
@@ -242,6 +240,17 @@ const QuestionsTab = ({ isDataPreloaded }) => {
     const meetingIdStr = String(meetingId);
     console.log(`Looking for meeting ID: ${meetingIdStr} in meetings`);
     
+    // First check the local Redux store for all questions
+    // If the question has meeting data attached directly, use that
+    const questionWithMeeting = questions.find(q => 
+      String(q.meetingId) === meetingIdStr && q.meeting && q.meeting.title
+    );
+    
+    if (questionWithMeeting && questionWithMeeting.meeting) {
+      console.log(`Found meeting in questions cache: ${questionWithMeeting.meeting.title}`);
+      return questionWithMeeting.meeting.title;
+    }
+    
     // Log all available meeting sources and their contents
     console.log("Available meeting sources:", {
       scheduledMeetings: scheduledMeetings.map(m => ({ id: m.id, title: m.title })),
@@ -252,6 +261,20 @@ const QuestionsTab = ({ isDataPreloaded }) => {
     const scheduledMeeting = scheduledMeetings.find(m => String(m.id) === meetingIdStr);
     if (scheduledMeeting) {
       console.log(`Found meeting in scheduledMeetings: ${scheduledMeeting.title}`);
+      
+      // Save this meeting data to local storage in case we need it later
+      try {
+        const meetingsCache = JSON.parse(localStorage.getItem('meetingsCache') || '{}');
+        meetingsCache[meetingIdStr] = {
+          id: scheduledMeeting.id,
+          title: scheduledMeeting.title,
+          timestamp: Date.now()
+        };
+        localStorage.setItem('meetingsCache', JSON.stringify(meetingsCache));
+      } catch (e) {
+        console.error("Error caching meeting data:", e);
+      }
+      
       return scheduledMeeting.title;
     }
     
@@ -276,6 +299,17 @@ const QuestionsTab = ({ isDataPreloaded }) => {
         console.log(`Found meeting in secondary source: ${meeting.title}`);
         return meeting.title;
       }
+    }
+    
+    // Try looking in localStorage cache as a last resort
+    try {
+      const meetingsCache = JSON.parse(localStorage.getItem('meetingsCache') || '{}');
+      if (meetingsCache[meetingIdStr] && meetingsCache[meetingIdStr].title) {
+        console.log(`Found meeting in localStorage cache: ${meetingsCache[meetingIdStr].title}`);
+        return meetingsCache[meetingIdStr].title;
+      }
+    } catch (e) {
+      console.error("Error reading meeting cache:", e);
     }
     
     console.log(`No meeting found with ID ${meetingIdStr} in any source`);
@@ -433,28 +467,57 @@ const QuestionsTab = ({ isDataPreloaded }) => {
     // Determine the correct role value
     let roleValue = 'student'; // Default
     
-    // Try all possible sources of role information
-    if (question.role === 'staff' || question.targetRole === 'staff') {
-      roleValue = 'staff';
-    } else if (question.role === 'student' || question.targetRole === 'student') {
-      roleValue = 'student';
-    } else if (question.roleId === 2 || question.role === 2) {
-      roleValue = 'staff';
-    } else if (question.roleId === 1 || question.role === 1) {
-      roleValue = 'student';
+    if (question.role) {
+      // Direct role field 
+      roleValue = question.role;
+    } else if (question.targetRole) {
+      // Or targetRole field
+      roleValue = question.targetRole;
+    } else if (question.roleId) {
+      // Or convert from numeric roleId
+      roleValue = question.roleId === 2 ? 'staff' : 'student';
     }
     
-    console.log(`Setting role for editing to: ${roleValue}`);
+    // Set role state
     setTargetRole(roleValue);
     
-    // For department and year
-    setDepartment(question.departmentId ? String(question.departmentId) : '');
-    setYear(question.year ? String(question.year) : '');
+    // Set department
+    if (question.departmentId) {
+      setDepartment(String(question.departmentId));
+    } else {
+      setDepartment('');
+    }
     
-    // For meeting ID, ensure it's a string for the Select component
-    const meetingId = question.meetingId ? String(question.meetingId) : '';
-    console.log(`Setting selected meeting to: ${meetingId}`);
-    setSelectedMeeting(meetingId);
+    // Set year for student questions
+    if (roleValue === 'student' && question.year) {
+      setYear(String(question.year));
+    } else if (roleValue === 'student') {
+      setYear('4'); // Default year for students
+    } else {
+      setYear(''); // Clear year for non-student roles
+    }
+    
+    // Set meeting ID - ensure it's converted to string for the select component
+    if (question.meetingId) {
+      setSelectedMeeting(String(question.meetingId));
+      
+      // Cache the meeting data if it's available
+      if (question.meeting && question.meeting.title) {
+        try {
+          const meetingsCache = JSON.parse(localStorage.getItem('meetingsCache') || '{}');
+          meetingsCache[String(question.meetingId)] = {
+            id: question.meetingId,
+            title: question.meeting.title,
+            timestamp: Date.now()
+          };
+          localStorage.setItem('meetingsCache', JSON.stringify(meetingsCache));
+        } catch (e) {
+          console.error("Error caching meeting data in edit:", e);
+        }
+      }
+    } else {
+      setSelectedMeeting('');
+    }
   };
 
   // Initiate the delete question process - open confirmation dialog
@@ -510,6 +573,38 @@ const QuestionsTab = ({ isDataPreloaded }) => {
           roleId: q.roleId
         }))
       );
+    }
+  }, [questions]);
+
+  // Update localStorage meeting cache when we get fresh questions with meeting data
+  useEffect(() => {
+    if (questions.length > 0) {
+      // Find all questions with meeting data
+      const questionsWithMeetings = questions.filter(q => q.meetingId && q.meeting && q.meeting.title);
+      
+      if (questionsWithMeetings.length > 0) {
+        try {
+          // Get existing cache
+          const meetingsCache = JSON.parse(localStorage.getItem('meetingsCache') || '{}');
+          
+          // Add all meeting data to cache
+          questionsWithMeetings.forEach(q => {
+            meetingsCache[String(q.meetingId)] = {
+              id: q.meetingId,
+              title: q.meeting.title,
+              status: q.meeting.status || 'Scheduled',
+              date: q.meeting.date,
+              timestamp: Date.now()
+            };
+          });
+          
+          // Save updated cache
+          localStorage.setItem('meetingsCache', JSON.stringify(meetingsCache));
+          console.log(`Updated localStorage cache with ${questionsWithMeetings.length} meetings`);
+        } catch (e) {
+          console.error("Error updating meeting cache:", e);
+        }
+      }
     }
   }, [questions]);
 
@@ -769,12 +864,15 @@ const QuestionsTab = ({ isDataPreloaded }) => {
                   value={year}
                   onChange={handleYearChange}
                   displayEmpty
+                  placeholder="Select Year"
                   renderValue={(selected) => {
-                    if (!selected && targetRole === 'student') return "Select Year";
-                    if (!selected) return "N/A";
+                    if (!selected) return "Select Year";
                     return `Year ${selected}`;
                   }}
                 >
+                  <MenuItem value="">
+                    <em>Select Year</em>
+                  </MenuItem>
                   <MenuItem value="1">First Year</MenuItem>
                   <MenuItem value="2">Second Year</MenuItem>
                   <MenuItem value="3">Third Year</MenuItem>
@@ -810,65 +908,51 @@ const QuestionsTab = ({ isDataPreloaded }) => {
                   onChange={handleMeetingChange}
                   displayEmpty
                   renderValue={(selected) => {
-                    if (!selected) return "Select Meeting";
-                    
-                    const meeting = scheduledMeetings.find(m => String(m.id) === selected);
-                    if (meeting) {
-                      return (
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <EventIcon sx={{ mr: 1, color: '#2E7D32' }} />
-                          {meeting.title}
-                        </Box>
-                      );
+                    if (!selected) {
+                      return "Select Meeting";
                     }
-                    return "Select Meeting";
+                    
+                    // First try to find meeting in scheduled meetings
+                    const selectedMeetingObj = scheduledMeetings.find(m => String(m.id) === selected);
+                    if (selectedMeetingObj) {
+                      return selectedMeetingObj.title;
+                    }
+                    
+                    // Second, check if it's in meeting cache
+                    try {
+                      const meetingsCache = JSON.parse(localStorage.getItem('meetingsCache') || '{}');
+                      if (meetingsCache[selected] && meetingsCache[selected].title) {
+                        return meetingsCache[selected].title;
+                      }
+                    } catch (e) {
+                      console.error("Error reading meeting cache in dropdown:", e);
+                    }
+                    
+                    // If not found in cache, try to get it from any question with the same meetingId
+                    const questionWithMeeting = questions.find(q => 
+                      String(q.meetingId) === selected && q.meeting && q.meeting.title
+                    );
+                    if (questionWithMeeting && questionWithMeeting.meeting) {
+                      return questionWithMeeting.meeting.title;
+                    }
+                    
+                    // Last resort fallback
+                    return `Meeting ${selected}`;
                   }}
                 >
                   <MenuItem value="">
-                    <em>Select Meeting</em>
+                    <em>Meetings</em>
                   </MenuItem>
-                  {scheduledMeetings.length > 0 ? (
-                    scheduledMeetings.map((meeting) => {
-                      // Ensure meeting ID is converted to string
-                      const meetingIdStr = String(meeting.id);
-                      console.log(`Meeting option: id=${meetingIdStr}, title=${meeting.title}`);
-                      return (
-                        <MenuItem key={meetingIdStr} value={meetingIdStr}>
+                  {scheduledMeetings.map((meeting) => (
+                    <MenuItem key={meeting.id} value={String(meeting.id)}>
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
                             <EventIcon sx={{ mr: 1, fontSize: 20, color: '#2E7D32' }} />
-                            {meeting.title}
+                        <span>{meeting.title}</span>
                           </Box>
                         </MenuItem>
-                      );
-                    })
-                  ) : (
-                    <MenuItem disabled value="">
-                      <em>No scheduled meetings available</em>
-                    </MenuItem>
-                  )}
+                  ))}
                 </Select>
               </FormControl>
-              
-              {scheduledMeetings.length === 0 && (
-                <Box sx={{ mt: 1 }}>
-                  <Alert severity="info" sx={{ mb: 1, borderRadius: 2 }}>
-                    No meetings available. Try refreshing or create meetings first.
-                  </Alert>
-                  <Button 
-                    size="small" 
-                    onClick={() => dispatch(fetchMeetings())}
-                    disabled={meetingsLoading}
-                    sx={{
-                      color: '#2196F3',
-                      '&:hover': {
-                        backgroundColor: 'rgba(33, 150, 243, 0.04)'
-                      }
-                    }}
-                  >
-                    {meetingsLoading ? 'Loading...' : 'Refresh Meetings'}
-                  </Button>
-                </Box>
-              )}
             </Grid>
           </Grid>
           
@@ -1105,7 +1189,7 @@ const QuestionsTab = ({ isDataPreloaded }) => {
                 </TableHead>
                 <TableBody>
                   {questions.map((question) => {
-                    // Find matching meeting to ensure we display the title correctly
+                    // Improved logic for displaying meeting title in the table
                     let meetingTitle = "No Meeting";
                     let foundMeeting = false;
                     
@@ -1118,12 +1202,35 @@ const QuestionsTab = ({ isDataPreloaded }) => {
                         meetingTitle = question.meeting.title;
                         foundMeeting = true;
                         console.log(`Found meeting title from question.meeting: ${meetingTitle}`);
+                        
+                        // Save to localStorage for persistence between sessions
+                        try {
+                          const meetingsCache = JSON.parse(localStorage.getItem('meetingsCache') || '{}');
+                          meetingsCache[String(question.meetingId)] = {
+                            id: question.meetingId,
+                            title: meetingTitle,
+                            timestamp: Date.now()
+                          };
+                          localStorage.setItem('meetingsCache', JSON.stringify(meetingsCache));
+                          console.log(`Saved meeting ${question.meetingId} to localStorage cache`);
+                        } catch (e) {
+                          console.error("Error caching meeting data from table:", e);
+                        }
                       } 
-                      // Then try to find the meeting in scheduledMeetings 
+                      // Then try to find the meeting through other means
                       else {
+                        // Use the helper function that checks multiple sources including localStorage cache
                       meetingTitle = getMeetingTitle(question.meetingId) || "No Meeting";
                         console.log(`For question ${question.id}, meeting title resolved to: ${meetingTitle}`);
                       foundMeeting = meetingTitle !== "No Meeting" && !meetingTitle.startsWith("Meeting ");
+                        
+                        // If we found the meeting, update the question object for future reference
+                        if (foundMeeting) {
+                          question.meeting = {
+                            id: question.meetingId,
+                            title: meetingTitle
+                          };
+                        }
                       }
                     }
                     

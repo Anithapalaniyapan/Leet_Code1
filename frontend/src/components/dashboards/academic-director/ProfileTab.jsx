@@ -1,5 +1,5 @@
 import React from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import {
   Box,
   Paper,
@@ -28,11 +28,17 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import ArticleIcon from '@mui/icons-material/Article';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
+import LogoutIcon from '@mui/icons-material/Logout';
+import { useNavigate } from 'react-router-dom';
+import { logout } from '../../../redux/slices/authSlice';
 
 /**
  * Enhanced Profile tab component for displaying user information
  */
 const ProfileTab = () => {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  
   // Get user profile from Redux store
   const { profile } = useSelector(state => state.user);
   const theme = useTheme();
@@ -44,6 +50,20 @@ const ProfileTab = () => {
     role: profile?.role || 'Academic Director',
     id: profile?.username || profile?.id || '',
     email: profile?.email || ''
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    // Clear local token
+    localStorage.removeItem('token');
+    localStorage.removeItem('userData');
+    localStorage.removeItem('userRole');
+    
+    // Dispatch the logout action
+    dispatch(logout());
+    
+    // Redirect to login
+    navigate('/login', { replace: true });
   };
 
   // Get user's first name for more personal greeting
@@ -92,6 +112,26 @@ const ProfileTab = () => {
           >
             {profileData.name.charAt(0) || 'A'}
             </Avatar>
+
+            {/* Logout button - positioned in top right of cover */}
+            <Button 
+              variant="contained" 
+              color="primary" 
+              startIcon={<LogoutIcon />}
+              onClick={handleLogout}
+              sx={{ 
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                bgcolor: 'rgba(255,255,255,0.2)',
+                backdropFilter: 'blur(10px)',
+                '&:hover': {
+                  bgcolor: 'rgba(255,255,255,0.3)',
+                }
+              }}
+            >
+              Logout
+            </Button>
         </Container>
       </Box>
 
@@ -147,7 +187,7 @@ const ProfileTab = () => {
               <CardContent>
                 <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
                   Quick Actions
-                </Typography>
+            </Typography>
                 <Stack spacing={2} sx={{ mt: 2 }}>
                   <Button 
                     variant="outlined" 
@@ -245,8 +285,8 @@ const ProfileTab = () => {
                         Questions Created
                       </Typography>
                     </Box>
-                  </Grid>
-                  
+              </Grid>
+              
                   <Grid item xs={12} sm={4}>
                     <Box sx={{ textAlign: 'center', p: 2, border: `1px solid ${blue[100]}`, borderRadius: 2 }}>
                       <ArticleIcon sx={{ fontSize: 36, mb: 1, color: theme.palette.info.main }} />
@@ -255,12 +295,12 @@ const ProfileTab = () => {
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         Reports Generated
-                      </Typography>
+                    </Typography>
                     </Box>
                   </Grid>
                 </Grid>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
 
             {/* Responsibilities Card */}
             <Card elevation={2} sx={{ borderRadius: 2 }}>
@@ -298,8 +338,8 @@ const ProfileTab = () => {
                           Manage feedback meetings and schedules
                         </Typography>
                       </Box>
-                    </Grid>
-                    
+              </Grid>
+              
                     <Grid item xs={12} sm={4}>
                       <Box sx={{ 
                         p: 2, 
@@ -321,10 +361,10 @@ const ProfileTab = () => {
                         <QuestionAnswerIcon sx={{ fontSize: 40, mb: 1 }} />
                         <Typography variant="body2" fontWeight="bold">
                           Create and manage feedback questions
-                        </Typography>
+                    </Typography>
                       </Box>
-                    </Grid>
-                    
+              </Grid>
+              
                     <Grid item xs={12} sm={4}>
                       <Box sx={{ 
                         p: 2, 
@@ -346,13 +386,13 @@ const ProfileTab = () => {
                         <BarChartIcon sx={{ fontSize: 40, mb: 1 }} />
                         <Typography variant="body2" fontWeight="bold">
                           View analytics and generate reports
-                        </Typography>
+                    </Typography>
                       </Box>
                     </Grid>
                   </Grid>
                 </Box>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
           </Grid>
         </Grid>
       </Container>

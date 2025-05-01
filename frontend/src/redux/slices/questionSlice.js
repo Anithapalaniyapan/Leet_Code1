@@ -27,7 +27,39 @@ export const fetchAllQuestions = createAsyncThunk(
         }
       });
       
-      return response.data;
+      // After fetching questions, enrich them with meeting data if they have meetingId
+      const questions = response.data;
+      const { meetings } = getState();
+      
+      // Get all available meetings from the store
+      const allMeetings = [
+        ...(meetings?.pastMeetings || []),
+        ...(meetings?.currentMeetings || []),
+        ...(meetings?.futureMeetings || []),
+        ...(Array.isArray(meetings) ? meetings : [])
+      ].filter(m => m && m.id);
+      
+      // Add meeting title information to questions
+      const questionsWithMeetings = questions.map(question => {
+        if (question.meetingId) {
+          const meeting = allMeetings.find(m => m.id === question.meetingId);
+          if (meeting) {
+            return {
+              ...question,
+              meeting: {
+                id: meeting.id,
+                title: meeting.title,
+                status: meeting.status
+              }
+            };
+          }
+        }
+        return question;
+      });
+      
+      console.log('Questions with meeting data attached:', questionsWithMeetings);
+      
+      return questionsWithMeetings;
     } catch (error) {
       console.error('Error fetching all questions:', error);
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch questions');
@@ -66,7 +98,39 @@ export const fetchQuestionsByDeptAndYear = createAsyncThunk(
         }
       });
       
-      return response.data;
+      // After fetching questions, enrich them with meeting data if they have meetingId
+      const questions = response.data;
+      const { meetings } = getState();
+      
+      // Get all available meetings from the store
+      const allMeetings = [
+        ...(meetings?.pastMeetings || []),
+        ...(meetings?.currentMeetings || []),
+        ...(meetings?.futureMeetings || []),
+        ...(Array.isArray(meetings) ? meetings : [])
+      ].filter(m => m && m.id);
+      
+      // Add meeting title information to questions
+      const questionsWithMeetings = questions.map(question => {
+        if (question.meetingId) {
+          const meeting = allMeetings.find(m => m.id === question.meetingId);
+          if (meeting) {
+            return {
+              ...question,
+              meeting: {
+                id: meeting.id,
+                title: meeting.title,
+                status: meeting.status
+              }
+            };
+          }
+        }
+        return question;
+      });
+      
+      console.log('Questions by dept/year with meeting data attached:', questionsWithMeetings);
+      
+      return questionsWithMeetings;
     } catch (error) {
       console.error('Error fetching questions by department and year:', error);
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch questions');
@@ -136,7 +200,36 @@ export const updateQuestion = createAsyncThunk(
         }
       });
       
-      return response.data.question;
+      // Get meeting data if the question has a meetingId
+      const updatedQuestion = response.data.question;
+      
+      if (updatedQuestion && updatedQuestion.meetingId) {
+        // Get all available meetings from the Redux store
+        const { meetings } = getState();
+        const allMeetings = [
+          ...(meetings?.pastMeetings || []),
+          ...(meetings?.currentMeetings || []),
+          ...(meetings?.futureMeetings || []),
+          ...(Array.isArray(meetings) ? meetings : [])
+        ].filter(m => m && m.id);
+        
+        // Find matching meeting 
+        const meeting = allMeetings.find(m => m.id === updatedQuestion.meetingId);
+        
+        if (meeting) {
+          // Add meeting info to the updated question
+          return {
+            ...updatedQuestion,
+            meeting: {
+              id: meeting.id,
+              title: meeting.title,
+              status: meeting.status || 'Scheduled'
+            }
+          };
+        }
+      }
+      
+      return updatedQuestion;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to update question');
     }
@@ -217,9 +310,33 @@ const questionSlice = createSlice({
           const newQuestion = action.payload.question;
           
           // Ensure meeting relationship is preserved
-          if (newQuestion.meetingId && action.payload.meeting) {
-            // If the API returned meeting info separately, attach it to the question
-            newQuestion.meeting = action.payload.meeting;
+          if (newQuestion.meetingId && newQuestion.meeting) {
+            // If the API returned meeting info, make sure we have all required fields
+            newQuestion.meeting = {
+              id: newQuestion.meeting.id,
+              title: newQuestion.meeting.title,
+              status: newQuestion.meeting.status || 'Scheduled'
+            };
+          } else if (newQuestion.meetingId) {
+            // If meeting relation not included, get it from existing meetings in the state
+            const { meetings } = action.meta.arg.getState();
+            
+            // Get all available meetings from the store
+            const allMeetings = [
+              ...(meetings?.pastMeetings || []),
+              ...(meetings?.currentMeetings || []),
+              ...(meetings?.futureMeetings || []),
+              ...(Array.isArray(meetings) ? meetings : [])
+            ].filter(m => m && m.id);
+            
+            const meeting = allMeetings.find(m => m.id === newQuestion.meetingId);
+            if (meeting) {
+              newQuestion.meeting = {
+                id: meeting.id,
+                title: meeting.title,
+                status: meeting.status || 'Scheduled'
+              };
+            }
           }
           
           // Log to help with debugging
@@ -230,7 +347,7 @@ const questionSlice = createSlice({
         } else {
           // The server returned the question directly
           console.log("Adding new question directly to state:", action.payload);
-          state.questions.push(action.payload);
+        state.questions.push(action.payload);
         }
         state.loading = false;
       })

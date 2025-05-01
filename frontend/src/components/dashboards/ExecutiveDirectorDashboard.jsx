@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { Box, LinearProgress, Snackbar, Alert, Typography, Paper, FormControl, InputLabel, Select, MenuItem,Grid} from '@mui/material';
+import { Box, LinearProgress, Snackbar, Alert, Typography, Paper, FormControl, InputLabel, Select, MenuItem, Grid, CircularProgress, Fade } from '@mui/material';
 import { setActiveSection } from '../../redux/slices/uiSlice';
 import { clearReportState} from '../../redux/slices/reportSlice';
 
@@ -455,14 +455,6 @@ const ExecutiveDirectorDashboard = () => {
   };
 
   const renderContent = () => {
-    if (loading) {
-      return (
-        <Box sx={{ width: '100%', mt: 4 }}>
-          <LinearProgress />
-        </Box>
-      );
-    }
-
     if (error) {
       return (
         <Box sx={{ mt: 4, p: 2 }}>
@@ -488,7 +480,7 @@ const ExecutiveDirectorDashboard = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', position: 'relative' }}>
       <Sidebar />
       <Box 
         sx={{ 
@@ -496,9 +488,112 @@ const ExecutiveDirectorDashboard = () => {
           marginLeft: '240px',  // Match sidebar width
           p: 3,
           minHeight: '100vh',
-          bgcolor: '#f9f9f9'  // Light background to match design
+          bgcolor: '#f9f9f9',  // Light background to match design
+          position: 'relative'
         }}
       >
+        {/* Loading overlay */}
+        {(loading || reportDownloadLoading || departmentFeedbackLoading || reportLoading) && (
+          <Fade in={true}>
+            <Box sx={{ 
+              position: 'fixed', // Changed from absolute to fixed for better centering
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: 'flex',
+              alignItems: 'center', // Center vertically
+              justifyContent: 'center', // Center horizontally
+              zIndex: 9999,
+              backgroundColor: 'rgba(25, 118, 210, 0.05)',
+              backdropFilter: 'blur(5px)',
+              height: '100vh', // Ensure full height
+              width: '100%', // Ensure full width
+              margin: 0, // Remove any margin
+              transform: 'translateY(0)', // Ensure no vertical offset
+              paddingLeft: '240px' // Add padding to account for sidebar
+            }}>
+              <Box sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+                transform: 'translateY(-20px)' // Small offset to adjust for visual center
+              }}>
+                <Box sx={{
+                  width: '80px',
+                  height: '80px',
+                  position: 'relative',
+                  animation: 'rotate 3s linear infinite',
+                  '@keyframes rotate': {
+                    '0%': {
+                      transform: 'rotate(0deg)'
+                    },
+                    '100%': {
+                      transform: 'rotate(360deg)'
+                    }
+                  }
+                }}>
+                  <Box sx={{
+                    position: 'absolute',
+                    width: '100%',
+                    height: '100%',
+                    border: '3px solid transparent',
+                    borderRadius: '50%',
+                    borderTopColor: '#3f51b5',
+                    borderBottomColor: '#f50057',
+                    borderLeftColor: '#00acc1',
+                    borderRightColor: '#ff9800',
+                    filter: 'drop-shadow(0 0 8px rgba(63, 81, 181, 0.5))'
+                  }} />
+                  <Box sx={{
+                    position: 'absolute',
+                    top: '10px',
+                    left: '10px',
+                    right: '10px',
+                    bottom: '10px',
+                    border: '3px solid transparent',
+                    borderRadius: '50%',
+                    borderTopColor: '#00acc1',
+                    borderBottomColor: '#3f51b5',
+                    borderLeftColor: '#ff9800',
+                    borderRightColor: '#f50057',
+                    animation: 'rotate 1.5s linear infinite reverse',
+                  }} />
+                </Box>
+
+                <Box sx={{
+                  mt: 4,
+                  textAlign: 'center',
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+                  border: '1px solid rgba(0, 0, 0, 0.05)'
+                }}>
+                  <Typography 
+                    variant="h6" 
+                    sx={{ 
+                      fontWeight: 600, 
+                      background: 'linear-gradient(45deg, #3f51b5 30%, #00acc1 90%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      mb: 1
+                    }}
+                  >
+                    Executive Director
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    Loading your dashboard...
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          </Fade>
+        )}
+        
+        {/* Main content */}
         {renderContent()}
       </Box>
       <Snackbar

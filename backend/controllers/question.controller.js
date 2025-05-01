@@ -125,11 +125,18 @@ exports.getAllQuestions = async (req, res) => {
     
     const questions = await Question.findAll({
       where: whereCondition,
-      include: [{
-        model: Department,
-        as: 'department',
-        attributes: ['id', 'name']
-      }],
+      include: [
+        {
+          model: Department,
+          as: 'department',
+          attributes: ['id', 'name']
+        },
+        {
+          model: db.meeting,
+          as: 'meeting',
+          attributes: ['id', 'title', 'status', 'meetingDate']
+        }
+      ],
       attributes: [
         'id',
         'text',
@@ -137,6 +144,7 @@ exports.getAllQuestions = async (req, res) => {
         'departmentId',
         'year',
         'active',
+        'meetingId',
         'createdAt',
         'updatedAt'
       ]
@@ -151,7 +159,14 @@ exports.getAllQuestions = async (req, res) => {
       department: q.department ? q.department.name : null,
       year: q.year,
       roleId: q.role === 'student' ? 1 : q.role === 'staff' ? 2 : 3,
-      active: q.active
+      active: q.active,
+      meetingId: q.meetingId,
+      meeting: q.meeting ? {
+        id: q.meeting.id,
+        title: q.meeting.title,
+        status: q.meeting.status,
+        date: q.meeting.meetingDate
+      } : null
     }));
 
     res.status(200).send(formattedQuestions);
@@ -202,11 +217,18 @@ exports.getQuestionsByDepartmentAndYear = async (req, res) => {
     
     const questions = await Question.findAll({
       where: whereCondition,
-      include: [{
-        model: Department,
-        as: 'department',
-        attributes: ['id', 'name']
-      }],
+      include: [
+        {
+          model: Department,
+          as: 'department',
+          attributes: ['id', 'name']
+        },
+        {
+          model: db.meeting,
+          as: 'meeting',
+          attributes: ['id', 'title', 'status', 'meetingDate']
+        }
+      ],
       order: [['createdAt', 'DESC']]
     });
 
@@ -221,7 +243,14 @@ exports.getQuestionsByDepartmentAndYear = async (req, res) => {
       department: q.department ? q.department.name : null,
       year: q.year,
       roleId: q.role === 'student' ? 1 : q.role === 'staff' ? 2 : 3,
-      active: q.active
+      active: q.active,
+      meetingId: q.meetingId,
+      meeting: q.meeting ? {
+        id: q.meeting.id,
+        title: q.meeting.title,
+        status: q.meeting.status,
+        date: q.meeting.meetingDate
+      } : null
     }));
 
     res.status(200).send(formattedQuestions);

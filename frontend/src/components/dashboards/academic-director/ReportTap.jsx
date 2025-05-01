@@ -174,7 +174,7 @@ const ReportTap = ({
                       variant="contained"
                       startIcon={loadingStates['department-stats'] ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
                       onClick={() => handleExport('department-stats')}
-                      disabled={!selectedDepartmentForStats || loadingStates['department-stats']}
+                      disabled={loadingStates['department-stats']}
                       fullWidth
                       sx={{ 
                         bgcolor: '#2196F3', 
@@ -183,11 +183,6 @@ const ReportTap = ({
                     >
                       {loadingStates['department-stats'] ? 'Downloading...' : 'Export Department Stats'}
                     </Button>
-                    {!selectedDepartmentForStats && (
-                      <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
-                        Select a department from the dropdown
-                      </Typography>
-                    )}
                   </CardContent>
                 </Card>
               </Grid>

@@ -7,7 +7,10 @@ import {
   Typography,
   Button,
   Snackbar,
-  Alert
+  Alert,
+  CircularProgress,
+  Fade,
+  Backdrop
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -511,18 +514,15 @@ const AcademicDirectorDashboard = () => {
           break;
           
         case 'department-stats':
-          // Ask user to select a department first
-          if (!selectedDepartment) {
-            setSnackbar({
-              open: true,
-              message: "Please select a department in the Analytics section first",
-              severity: 'warning'
-            });
-            return;
+          // If department is selected, use it; otherwise, use overall stats
+          if (selectedDepartment) {
+            url = `http://localhost:8080/api/feedback/excel/department/${selectedDepartment}`;
+            filename = `department_${selectedDepartment}_feedback_stats.xlsx`;
+          } else {
+            // If no department is selected, download overall department stats
+            url = 'http://localhost:8080/api/feedback/excel/overall';
+            filename = 'all_departments_stats.xlsx';
           }
-          
-          url = `http://localhost:8080/api/feedback/excel/department/${selectedDepartment}`;
-          filename = `department_${selectedDepartment}_feedback_stats.xlsx`;
           break;
           
         case 'overall-stats':
@@ -682,20 +682,6 @@ const AcademicDirectorDashboard = () => {
 
   return (
     <Box sx={{ display: 'flex' }}>
-      {/* Debug info */}
-      <Box sx={{ 
-        position: 'fixed', 
-        top: 0, 
-        right: 0, 
-        bgcolor: 'rgba(0,0,0,0.7)', 
-        color: 'white', 
-        p: 1, 
-        zIndex: 9999,
-        fontSize: '10px'
-      }}>
-        Active Tab: {activeTab} | Initialized: {initialized ? 'Yes' : 'No'} | Auth: {isAuthenticated ? 'Yes' : 'No'}
-      </Box>
-      
       {/* Sidebar */}
       <Sidebar
         tabs={tabs}
@@ -716,13 +702,103 @@ const AcademicDirectorDashboard = () => {
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
-          alignItems: 'center'
+          alignItems: 'center',
+          position: 'relative'
         }}
       >
         {loading && (
-          <Box sx={{ width: '100%' }}>
-            <LinearProgress />
-          </Box>
+          <Fade in={loading}>
+            <Box sx={{ 
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+              backgroundColor: 'rgba(25, 118, 210, 0.05)',
+              backdropFilter: 'blur(5px)'
+            }}>
+              <Box sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative'
+              }}>
+                <Box sx={{
+                  width: '80px',
+                  height: '80px',
+                  position: 'relative',
+                  animation: 'rotate 3s linear infinite',
+                  '@keyframes rotate': {
+                    '0%': {
+                      transform: 'rotate(0deg)'
+                    },
+                    '100%': {
+                      transform: 'rotate(360deg)'
+                    }
+                  }
+                }}>
+                  <Box sx={{
+                    position: 'absolute',
+                    width: '100%',
+                    height: '100%',
+                    border: '3px solid transparent',
+                    borderRadius: '50%',
+                    borderTopColor: '#3f51b5',
+                    borderBottomColor: '#f50057',
+                    borderLeftColor: '#00acc1',
+                    borderRightColor: '#ff9800',
+                    filter: 'drop-shadow(0 0 8px rgba(63, 81, 181, 0.5))'
+                  }} />
+                  <Box sx={{
+                    position: 'absolute',
+                    top: '10px',
+                    left: '10px',
+                    right: '10px',
+                    bottom: '10px',
+                    border: '3px solid transparent',
+                    borderRadius: '50%',
+                    borderTopColor: '#00acc1',
+                    borderBottomColor: '#3f51b5',
+                    borderLeftColor: '#ff9800',
+                    borderRightColor: '#f50057',
+                    animation: 'rotate 1.5s linear infinite reverse',
+                  }} />
+                </Box>
+
+                <Box sx={{
+                  mt: 4,
+                  textAlign: 'center',
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+                  border: '1px solid rgba(0, 0, 0, 0.05)'
+                }}>
+                  <Typography 
+                    variant="h6" 
+                    sx={{ 
+                      fontWeight: 600, 
+                      background: 'linear-gradient(45deg, #3f51b5 30%, #00acc1 90%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      mb: 1
+                    }}
+                  >
+                    Academic Director
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    Loading your dashboard...
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          </Fade>
         )}
         
         {error && (

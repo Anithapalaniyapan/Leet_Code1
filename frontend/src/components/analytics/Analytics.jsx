@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   Box, Typography, Paper, FormControl, InputLabel, 
-  Select, MenuItem, CircularProgress
+  Select, MenuItem, CircularProgress, Fade
 } from '@mui/material';
 
 // Import all the analytics components
@@ -270,16 +270,113 @@ const Analytics = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3, position: 'relative' }}>
       <Typography variant="h5" gutterBottom sx={{ mb: 4, fontWeight: 'bold' }}>
         Feedback Analysis Dashboard
       </Typography>
       
-      {feedbackLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 5 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
+      {/* Loading overlay */}
+      {(feedbackLoading || departmentFeedbackLoading || questionFeedbackLoading) && (
+        <Fade in={true}>
+          <Box sx={{ 
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            backgroundColor: 'rgba(25, 118, 210, 0.05)',
+            backdropFilter: 'blur(5px)',
+            height: '100vh',
+            width: '100%',
+            margin: 0,
+            transform: 'translateY(0)',
+            paddingLeft: '240px'
+          }}>
+            <Box sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative',
+              transform: 'translateY(-20px)'
+            }}>
+              <Box sx={{
+                width: '80px',
+                height: '80px',
+                position: 'relative',
+                animation: 'rotate 3s linear infinite',
+                '@keyframes rotate': {
+                  '0%': {
+                    transform: 'rotate(0deg)'
+                  },
+                  '100%': {
+                    transform: 'rotate(360deg)'
+                  }
+                }
+              }}>
+                <Box sx={{
+                  position: 'absolute',
+                  width: '100%',
+                  height: '100%',
+                  border: '3px solid transparent',
+                  borderRadius: '50%',
+                  borderTopColor: '#3f51b5',
+                  borderBottomColor: '#f50057',
+                  borderLeftColor: '#00acc1',
+                  borderRightColor: '#ff9800',
+                  filter: 'drop-shadow(0 0 8px rgba(63, 81, 181, 0.5))'
+                }} />
+                <Box sx={{
+                  position: 'absolute',
+                  top: '10px',
+                  left: '10px',
+                  right: '10px',
+                  bottom: '10px',
+                  border: '3px solid transparent',
+                  borderRadius: '50%',
+                  borderTopColor: '#00acc1',
+                  borderBottomColor: '#3f51b5',
+                  borderLeftColor: '#ff9800',
+                  borderRightColor: '#f50057',
+                  animation: 'rotate 1.5s linear infinite reverse',
+                }} />
+              </Box>
+
+              <Box sx={{
+                mt: 4,
+                textAlign: 'center',
+                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+                border: '1px solid rgba(0, 0, 0, 0.05)'
+              }}>
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    fontWeight: 600, 
+                    background: 'linear-gradient(45deg, #3f51b5 30%, #00acc1 90%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    mb: 1
+                  }}
+                >
+                  Analytics
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  Loading data...
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+        </Fade>
+      )}
+      
+      {!feedbackLoading && (
         <>
           {/* Department selector */}
           <Paper sx={{ p: 3, mb: 4, borderRadius: 2, boxShadow: 3 }}>
@@ -316,7 +413,6 @@ const Analytics = () => {
           <UserTypeComparison 
             feedbackData={feedbackData}
           />
-       
           
           {/* Department-specific feedback */}
           <DepartmentFeedback 

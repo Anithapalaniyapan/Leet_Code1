@@ -55,7 +55,7 @@ const Profile = ({ userProfile }) => {
     }}>
       {/* Cover Photo Area */}
       <Box 
-        sx={{ 
+            sx={{ 
           height: 200, 
           width: '100%', 
           position: 'relative',
@@ -64,12 +64,12 @@ const Profile = ({ userProfile }) => {
           backgroundPosition: 'center',
           mb: 8,
           borderRadius: 2
-        }}
-      >
+            }}
+          >
         <Container maxWidth="lg">
           {/* Profile Avatar - positioned to overlap cover and content */}
-          <Avatar 
-            sx={{ 
+            <Avatar 
+              sx={{ 
               width: 150, 
               height: 150, 
               border: '5px solid white',
@@ -80,17 +80,17 @@ const Profile = ({ userProfile }) => {
               bgcolor: theme.palette.primary.main,
               fontSize: '4rem',
               boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
-            }}
-          >
-            {userProfile?.name?.charAt(0) || 'E'}
-          </Avatar>
+              }}
+            >
+              {userProfile?.name?.charAt(0) || 'E'}
+            </Avatar>
             
           {/* Logout button - positioned in top right of cover */}
           <Button 
             variant="contained" 
-            color="primary" 
+              color="primary" 
             startIcon={<LogoutIcon />}
-            onClick={handleLogout}
+                onClick={handleLogout}
             sx={{ 
               position: 'absolute',
               top: 16,
@@ -135,7 +135,7 @@ const Profile = ({ userProfile }) => {
                       <Typography variant="body2" color="text.secondary">Email Address</Typography>
                       <Typography variant="body1" fontWeight="medium">
                         {userProfile?.email || 'ed@shanmugha.edu.in'}
-                      </Typography>
+            </Typography>
                     </Box>
                   </Box>
                   
@@ -147,13 +147,13 @@ const Profile = ({ userProfile }) => {
                       <Typography variant="body2" color="text.secondary">Username</Typography>
                       <Typography variant="body1" fontWeight="medium">
                         {userProfile?.username || 'ED7327'}
-                      </Typography>
+                  </Typography>
                     </Box>
                   </Box>
                 </Box>
               </CardContent>
             </Card>
-          </Grid>
+              </Grid>
               
           {/* Right Column */}
           <Grid item xs={12} md={8}>
@@ -220,9 +220,9 @@ const Profile = ({ userProfile }) => {
                         <BarChartIcon sx={{ fontSize: 40, mb: 1 }} />
                         <Typography variant="body2" fontWeight="bold">
                           View & download all analytics and reports
-                        </Typography>
-                      </Box>
-                    </Grid>
+                  </Typography>
+                </Box>
+              </Grid>
               
                     <Grid item xs={12} sm={4}>
                       <Box sx={{ 
@@ -245,9 +245,9 @@ const Profile = ({ userProfile }) => {
                         <FeedbackIcon sx={{ fontSize: 40, mb: 1 }} />
                         <Typography variant="body2" fontWeight="bold">
                           Monitor feedback across all departments
-                        </Typography>
-                      </Box>
-                    </Grid>
+                  </Typography>
+                </Box>
+              </Grid>
               
                     <Grid item xs={12} sm={4}>
                       <Box sx={{ 
@@ -270,10 +270,10 @@ const Profile = ({ userProfile }) => {
                         <AssignmentIcon sx={{ fontSize: 40, mb: 1 }} />
                         <Typography variant="body2" fontWeight="bold">
                           Access all meeting minutes and HOD responses
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  </Grid>
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
                 </Box>
               </CardContent>
             </Card>

@@ -328,7 +328,8 @@ const ViewScheduleTab = ({ getDepartmentName, isDataPreloaded }) => {
                       <Grid container spacing={2}>
                         <Grid item xs={12} md={3}>
                           <Typography variant="body2" color="textSecondary">
-                            {meeting.startTime || 'No time specified'}
+                            {meeting.startTime ? formatTimeWithAMPM(meeting.startTime) : 'No time specified'}
+                            {meeting.endTime && ` - ${formatTimeWithAMPM(meeting.endTime)}`}
                           </Typography>
                         </Grid>
                         <Grid item xs={12} md={9}>
