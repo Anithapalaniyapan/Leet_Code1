@@ -2,6 +2,7 @@ const db = require('../models');
 const Meeting = db.meeting;
 const User = db.user;
 const Department = db.department;
+const { Op } = require('sequelize');
 
 // Create a new meeting
 exports.createMeeting = async (req, res) => {
@@ -501,5 +502,89 @@ exports.updateMeetingStatuses = async () => {
   } catch (error) {
     console.error('Error updating meeting statuses:', error);
     return { error: error.message };
+  }
+};
+
+// Add a new endpoint to get meetings starting within a specific time window
+exports.getUpcomingMeetingsWithinMinutes = async (req, res) => {
+  try {
+    const minutes = parseInt(req.params.minutes) || 5; // Default to 5 minutes if not specified
+    const userId = req.userId;
+    
+    // Get user details to filter meetings correctly
+    const user = await db.user.findByPk(userId, {
+      include: [
+        {
+          model: db.department,
+          as: 'department',
+          attributes: ['id', 'name']
+        }
+      ]
+    });
+    
+    if (!user) {
+      return res.status(404).send({ message: 'User not found' });
+    }
+    
+    // Get current date and time
+    const now = new Date();
+    
+    // Calculate the cutoff time (now + minutes)
+    const cutoffTime = new Date(now.getTime() + (minutes * 60 * 1000));
+    
+    // Format dates for SQL query
+    const nowDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const nowTime = now.toTimeString().split(' ')[0]; // HH:MM:SS
+    
+    // Find meetings that:
+    // 1. Match the user's role, department, and year
+    // 2. Are scheduled to start between now and the cutoff time
+    // 3. Haven't been completed or cancelled
+    const meetings = await db.meeting.findAll({
+      where: {
+        // Match user's role (for student, roleId = 1)
+        roleId: 1, // Assuming 1 is for students
+        
+        // Match user's department or is for all departments
+        [Op.or]: [
+          { departmentId: user.department?.id },
+          { departmentId: null }
+        ],
+        
+        // Match user's year or is for all years
+        [Op.or]: [
+          { year: user.year },
+          { year: null }
+        ],
+        
+        // Meeting date is today
+        meetingDate: nowDate,
+        
+        // Meeting starts between now and cutoff time
+        [Op.and]: [
+          { startTime: { [Op.gte]: nowTime } },
+          { startTime: { [Op.lte]: cutoffTime.toTimeString().split(' ')[0] } }
+        ],
+        
+        // Not completed or cancelled
+        status: { [Op.notIn]: ['completed', 'cancelled'] }
+      },
+      order: [
+        ['meetingDate', 'ASC'],
+        ['startTime', 'ASC']
+      ],
+      include: [
+        {
+          model: db.department,
+          as: 'department',
+          attributes: ['id', 'name']
+        }
+      ]
+    });
+    
+    res.status(200).send(meetings);
+  } catch (error) {
+    console.error('Error getting upcoming meetings:', error);
+    res.status(500).send({ message: error.message });
   }
 };

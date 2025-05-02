@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import {
@@ -54,6 +54,12 @@ import {
   showSnackbar, 
   hideSnackbar 
 } from '../../redux/slices/uiSlice';
+
+// Import the components
+import ProfileSection from '../staff-dashboard/ProfileSection';
+import FeedbackSection from '../staff-dashboard/FeedbackSection';
+import MeetingScheduleSection from '../staff-dashboard/MeetingScheduleSection';
+import SidebarComponent from '../staff-dashboard/Sidebar';
 
 // Configure axios defaults and interceptors
 axios.defaults.baseURL = 'http://localhost:8080/api';
@@ -114,6 +120,12 @@ const StaffDashboard = () => {
   });
   const [localQuestions, setLocalQuestions] = useState([]);
   const [activeMeeting, setActiveMeeting] = useState(null);
+  const [shouldShowQuestions, setShouldShowQuestions] = useState(false);
+  const [nextMeetingTimer, setNextMeetingTimer] = useState(null);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+
+  // Ref for the polling interval
+  const pollingIntervalRef = useRef(null);
 
   // Set initial active section
   useEffect(() => {
@@ -259,9 +271,11 @@ const StaffDashboard = () => {
 
   // Update fetchQuestions function
   const fetchQuestions = async (meetingId = null) => {
-    try {
       setQuestionsLoading(true);
+    setQuestionsError('');
+    setFeedbackSubmitted(false);
       
+    try {
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('No authentication token found');
@@ -273,18 +287,91 @@ const StaffDashboard = () => {
       if (meetingId) {
         endpoint = `http://localhost:8080/api/questions/meeting/${meetingId}`;
         
-        // Set active meeting for feedback submission
+        // Also set this as the active meeting for feedback submission
         const meeting = meetings.find(m => m.id === meetingId);
         if (meeting) {
           setActiveMeeting(meeting);
           console.log('Set active meeting for feedback:', meeting);
+          
+          // Check if we're within 5 minutes of the meeting time
+          const now = new Date();
+          
+          // Handle different date formats
+          let meetingDate = meeting.date || meeting.meetingDate;
+          const meetingTime = meeting.startTime || '00:00';
+          
+          // If date is an ISO string (contains 'T'), extract just the date part
+          if (typeof meetingDate === 'string' && meetingDate.includes('T')) {
+            meetingDate = meetingDate.split('T')[0]; // Extract just the YYYY-MM-DD part
+          }
+          
+          const meetingDateTime = new Date(`${meetingDate}T${meetingTime}`);
+          
+          if (!isNaN(meetingDateTime.getTime())) {
+            const diffMs = meetingDateTime.getTime() - now.getTime();
+            const diffMins = Math.floor(diffMs / 60000);
+            
+            // If meeting is more than 5 minutes away, we shouldn't show questions yet
+            if (diffMins > 5) {
+              console.log(`Meeting is ${diffMins} minutes away, questions will be available in ${diffMins - 5} minutes`);
+              setShouldShowQuestions(false);
+              setQuestionsLoading(false);
+              return;
+      } else {
+              // Show questions if less than 5 minutes to meeting or if meeting has started but within 60 minutes
+              if (diffMins >= -60) {
+                console.log(`Meeting is ${diffMins <= 0 ? 'ongoing or past' : diffMins + ' minutes away'}, showing questions now`);
+                setShouldShowQuestions(true);
+              } else {
+                console.log(`Meeting has passed by more than 60 minutes, not showing questions`);
+                setShouldShowQuestions(false);
+                setQuestionsLoading(false);
+                return;
+              }
+            }
+          } else {
+            console.error('Invalid meeting date/time format:', meetingDate, meetingTime);
+          }
         }
       } else {
-        // Otherwise use the regular endpoint that returns questions for current user
-        endpoint = 'http://localhost:8080/api/questions';
-        
-        // Clear active meeting
+        // If no meeting ID, only fetch if we have an active meeting and within 5 minutes
+        if (activeMeeting) {
+          const now = new Date();
+          
+          // Handle different date formats
+          let meetingDate = activeMeeting.date || activeMeeting.meetingDate;
+          const meetingTime = activeMeeting.startTime || '00:00';
+          
+          // If date is an ISO string (contains 'T'), extract just the date part
+          if (typeof meetingDate === 'string' && meetingDate.includes('T')) {
+            meetingDate = meetingDate.split('T')[0]; // Extract just the YYYY-MM-DD part
+          }
+          
+          const meetingDateTime = new Date(`${meetingDate}T${meetingTime}`);
+          
+          if (!isNaN(meetingDateTime.getTime())) {
+            const diffMs = meetingDateTime.getTime() - now.getTime();
+            const diffMins = Math.floor(diffMs / 60000);
+            
+            if (diffMins > 5) {
+              console.log(`Meeting is ${diffMins} minutes away, questions will be available in ${diffMins - 5} minutes`);
+              setShouldShowQuestions(false);
+              setQuestionsLoading(false);
+              return;
+            }
+            
+            // Use meeting-specific endpoint with active meeting ID
+            endpoint = `http://localhost:8080/api/questions/meeting/${activeMeeting.id}`;
+            setShouldShowQuestions(true);
+          } else {
+            console.error('Invalid meeting date/time format for active meeting:', meetingDate, meetingTime);
+          }
+        } else {
+          // No meeting ID and no active meeting, use regular endpoint
+          endpoint = 'http://localhost:8080/api/questions';
+          // Clear active meeting when fetching all questions
         setActiveMeeting(null);
+        }
       }
       
       const response = await axios.get(endpoint, {
@@ -294,9 +381,10 @@ const StaffDashboard = () => {
       });
 
       if (response.data) {
+        console.log('Questions data:', response.data);
+        
         // Set questions and initialize ratings
         const questionsData = Array.isArray(response.data) ? response.data : [];
-        
         setLocalQuestions(questionsData);
         
         // Initialize ratings for each question
@@ -306,12 +394,37 @@ const StaffDashboard = () => {
         });
         setLocalRatings(initialRatings);
         
-        setQuestionsError(null);
+        // Check if feedback was already submitted for this meeting
+        if ((meetingId || activeMeeting) && questionsData.length > 0) {
+          const currentMeetingId = meetingId || activeMeeting.id;
+          try {
+            // Use the new endpoint that combines meeting ID and current user
+            const feedbackResponse = await axios.get(`http://localhost:8080/api/feedback/meeting/${currentMeetingId}/user`, {
+              headers: {
+                'x-access-token': token
+              }
+            });
+
+            if (feedbackResponse.data && Array.isArray(feedbackResponse.data) && feedbackResponse.data.length > 0) {
+              console.log('Found existing feedback for this meeting/user:', feedbackResponse.data);
+              setFeedbackSubmitted(true);
+              setShouldShowQuestions(false);
+            }
+          } catch (error) {
+            // 404 error is expected if no feedback exists yet
+            if (error.response && error.response.status === 404) {
+              console.log('No feedback found for this meeting/user, can submit new feedback');
+              // This is normal, user hasn't submitted feedback yet
+              setFeedbackSubmitted(false);
+            } else {
+              console.error('Error checking for existing feedback:', error);
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching questions:', error);
       setQuestionsError('Failed to load questions. Please try again later.');
-      setLocalQuestions([]);
     } finally {
       setQuestionsLoading(false);
     }
@@ -380,7 +493,7 @@ const StaffDashboard = () => {
     }));
   };
 
-  const handleSubmitFeedback = async () => {
+  const handleSubmitFeedback = async (notes = {}) => {
     try {
       // Validate that all questions have ratings
       const hasEmptyRatings = Object.values(localRatings).some(rating => rating === 0);
@@ -408,11 +521,14 @@ const StaffDashboard = () => {
         // Process each question's rating and submit individually
         for (const [questionId, rating] of Object.entries(localRatings)) {
           if (rating > 0) {
+            // Get notes for this question if available
+            const noteText = notes[questionId] || '';
+            
             // Using the correct API endpoint for feedback submission
             await axios.post('http://localhost:8080/api/feedback/submit', {
               questionId: parseInt(questionId),
               rating: rating,
-              notes: '', // Optional notes field
+              notes: noteText, // Include notes from the form
               meetingId: activeMeetingId // Include the meetingId
             }, {
               headers: {
@@ -421,7 +537,7 @@ const StaffDashboard = () => {
               }
             });
             
-            console.log(`Feedback for question ${questionId} submitted successfully`);
+            console.log(`Feedback for question ${questionId} submitted successfully with notes: ${noteText ? 'Yes' : 'No'}`);
           }
         }
 
@@ -438,6 +554,10 @@ const StaffDashboard = () => {
           resetRatings[q.id] = 0;
         });
         setLocalRatings(resetRatings);
+        setFeedbackSubmitted(true);
+        setShouldShowQuestions(false);
+        
+        return true;
       } catch (apiError) {
         console.error('Error submitting feedback to API:', apiError);
         
@@ -447,6 +567,8 @@ const StaffDashboard = () => {
           message: 'Failed to submit feedback: ' + (apiError.response?.data?.message || 'Please try again'),
           severity: 'error'
         });
+        
+        return false;
       }
     } catch (error) {
       console.error('Error in feedback submission flow:', error);
@@ -456,6 +578,8 @@ const StaffDashboard = () => {
         message: 'Please try again later',
         severity: 'info'
       });
+      
+      return false;
     } finally {
       setLoading(false);
     }
@@ -615,342 +739,18 @@ const StaffDashboard = () => {
     }
   };
 
-  // Render staff profile section
-  const renderProfile = () => {
-    // Get user data from both Redux and localStorage
-    const userData = JSON.parse(localStorage.getItem('userData')) || {};
-    console.log('Staff Profile - User Data:', userData);
-
-    // Combine profile data with fallbacks
-    const profileData = {
-      name: profile?.fullName || userData?.fullName || 'Professor',
-      staffId: profile?.username || userData?.username || 'CS001',
-      department: profile?.department?.name || userData?.department?.name || 'Computer Science and Engineering',
-      position: 'Professor', // Default position for staff
-      email: profile?.email || userData?.email || 'CS001@shanmugha.edu.in'
-    };
-
-    return (
-      <Paper sx={{ 
-        p: 4, 
-        borderRadius: 0,
-        position: 'relative'  
-      }}>
-        <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 4 }}>Staff Profile</Typography>
-        
-        <Box sx={{ 
-          display: 'flex',
-          alignItems: 'flex-start',
-          mb: 0
-        }}>
-          <Avatar sx={{ width: 76, height: 76, bgcolor: '#1A2137', mr: 4 }}>
-            {profileData.name ? profileData.name.charAt(0) : 'P'}
-          </Avatar>
-          
-          <Box sx={{ width: '100%' }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, mb: 3 }}>
-              <Box>
-                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                  <Typography variant="body1" sx={{ fontWeight: 'bold', color: '#666', mb: 1 }}>Name</Typography>
-                  <Typography variant="body1">{profileData.name}</Typography>
-                </Box>
-              </Box>
-              
-              <Box>
-                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                  <Typography variant="body1" sx={{ fontWeight: 'bold', color: '#666', mb: 1 }}>Staff ID</Typography>
-                  <Typography variant="body1">{profileData.staffId}</Typography>
-                </Box>
-              </Box>
-            </Box>
-            
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, mb: 3 }}>
-              <Box>
-                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                  <Typography variant="body1" sx={{ fontWeight: 'bold', color: '#666', mb: 1 }}>Department</Typography>
-                  <Typography variant="body1">{profileData.department}</Typography>
-                </Box>
-              </Box>
-              
-              <Box>
-                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                  <Typography variant="body1" sx={{ fontWeight: 'bold', color: '#666', mb: 1 }}>Position</Typography>
-                  <Typography variant="body1">{profileData.position}</Typography>
-                </Box>
-              </Box>
-            </Box>
-            
-            <Box>
-              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                <Typography variant="body1" sx={{ fontWeight: 'bold', color: '#666', mb: 1 }}>Email ID</Typography>
-                <Typography variant="body1">{profileData.email}</Typography>
-              </Box>
-            </Box>
-          </Box>
-        </Box>
-      </Paper>
-    );
+  // Handle fetching questions for a specific meeting
+  const handleFetchQuestionsByMeeting = (meetingId) => {
+    // First switch to the feedback section
+    dispatch(setActiveSection('submit-feedback'));
+    
+    // Then fetch questions for this meeting after a short delay
+    setTimeout(() => {
+      fetchQuestions(meetingId);
+    }, 100);
   };
 
-  // Render feedback section
-  const renderFeedback = () => {
-    console.log('Rendering feedback section, Redux questions:', questions);
-    console.log('Rendering feedback section, local questions:', localQuestions);
-    console.log('Questions loading state:', questionsLoading);
-    console.log('Questions error state:', questionsError);
-    
-    // Use local questions instead of Redux state
-    const currentQuestions = localQuestions.length > 0 ? localQuestions : (questions || []);
-    
-    console.log('Using questions for rendering:', currentQuestions);
-    
-    return (
-    <Paper sx={{ p: 4, borderRadius: 0 }}>
-      <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 4 }}>Submit Feedback</Typography>
-      
-      {questionsLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : questionsError ? (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {questionsError}
-          <Button 
-            size="small" 
-            onClick={fetchQuestions} 
-            sx={{ ml: 2 }}
-          >
-            Retry
-          </Button>
-        </Alert>
-      ) : currentQuestions.length === 0 ? (
-        <Alert severity="info">
-          No feedback questions available for your department.
-          <Button 
-            size="small" 
-            onClick={fetchQuestions} 
-            sx={{ ml: 2 }}
-          >
-            Refresh Questions
-          </Button>
-        </Alert>
-      ) : (
-        <>
-          {currentQuestions.map((question) => (
-            <Box 
-              key={question.id} 
-              sx={{ 
-                mb: 4,
-                p: 3,
-                border: '1px solid #e0e0e0',
-                borderRadius: 1,
-                '&:hover': {
-                  backgroundColor: '#f5f5f5'
-                }
-              }}
-            >
-              <Typography 
-                variant="body1" 
-                gutterBottom
-                sx={{ 
-                  fontWeight: 500,
-                  color: '#1A2137'
-                }}
-              >
-                {question.text}
-              </Typography>
-              <Box sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
-                <Typography variant="body2" color="textSecondary" sx={{ mr: 2 }}>
-                  Your Rating:
-              </Typography>
-              <Rating
-                name={`rating-${question.id}`}
-                value={localRatings[question.id] || 0}
-                onChange={(event, newValue) => handleRatingChange(question.id, newValue)}
-                size="medium"
-                precision={1}
-                  sx={{ 
-                    color: '#FFD700',
-                    '& .MuiRating-iconFilled': {
-                      color: '#FFD700'
-                    }
-                  }}
-                />
-              </Box>
-            </Box>
-          ))}
-          
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-            <Button 
-              variant="contained" 
-              onClick={handleSubmitFeedback} 
-              disabled={loading || currentQuestions.length === 0}
-              sx={{ 
-                bgcolor: '#1A2137', 
-                '&:hover': { bgcolor: '#2A3147' },
-                fontWeight: 'medium',
-                px: 4,
-                py: 1
-              }}
-            >
-              {loading ? 'Submitting...' : 'Submit Feedback'}
-            </Button>
-          </Box>
-        </>
-      )}
-    </Paper>
-  );
-  };
-
-  // Render meeting schedule section
-  const renderViewMeetingSchedule = () => {
-    // Extract meetings from different sources in state to ensure we catch all meetings
-    const allMeetings = [
-      ...(meetings.pastMeetings || []),
-      ...(meetings.currentMeetings || []),
-      ...(meetings.futureMeetings || []),
-      // Also try the nested meetings structure
-      ...((meetings.meetings?.pastMeetings || [])),
-      ...((meetings.meetings?.currentMeetings || [])), 
-      ...((meetings.meetings?.futureMeetings || []))
-    ];
-    
-    // Remove duplicates if any (by id)
-    const uniqueMeetings = allMeetings.filter((meeting, index, self) =>
-      index === self.findIndex((m) => m.id === meeting.id)
-    );
-    
-    console.log('Staff Dashboard - renderViewMeetingSchedule: Current meetings state:', meetings);
-    console.log('Staff Dashboard - renderViewMeetingSchedule: Combined allMeetings:', uniqueMeetings);
-
-    return (
-      <Paper sx={{ p: 4, borderRadius: 0 }}>
-        <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 4 }}>
-          View Meeting Schedule
-        </Typography>
-        
-        {meetings.loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <>
-            {uniqueMeetings && uniqueMeetings.length > 0 ? (
-              <TableContainer>
-                <Table sx={{ minWidth: 650 }}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Title</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Time</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Department</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {uniqueMeetings.map((meeting) => {
-                      console.log('Staff Dashboard - renderViewMeetingSchedule: Rendering meeting:', meeting);
-                      // Normalize meeting data
-                      const meetingDate = meeting.meetingDate || meeting.date;
-                      const formattedDate = meetingDate 
-                        ? new Date(meetingDate).toLocaleDateString() 
-                        : 'Not specified';
-                      
-                      // Get department name
-                      const departmentName = meeting.department?.name || 
-                        (typeof meeting.department === 'string' ? meeting.department : null) ||
-                        getDepartmentNameById(meeting.departmentId) || 
-                        'Not specified';
-              
-              return (
-                        <TableRow 
-                          key={meeting.id || Math.random().toString(36).substr(2, 9)}
-                          sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                        >
-                          <TableCell component="th" scope="row">
-                        {meeting.title}
-                          </TableCell>
-                          <TableCell>{formattedDate}</TableCell>
-                          <TableCell>
-                            {meeting.startTime ? (
-                              meeting.endTime ? 
-                                `${formatTimeWithAMPM(meeting.startTime)} - ${formatTimeWithAMPM(meeting.endTime)}` :
-                                formatTimeWithAMPM(meeting.startTime)
-                            ) : 'Time not specified'}
-                          </TableCell>
-                          <TableCell>{departmentName}</TableCell>
-                          <TableCell>
-                            <Chip 
-                              label={meeting.status || 'Scheduled'} 
-                              size="small"
-                              sx={{ 
-                                bgcolor: 
-                                  meeting.status === 'completed' ? '#e8f5e9' : 
-                                  meeting.status === 'cancelled' ? '#ffebee' : 
-                                  meeting.status === 'in-progress' ? '#fff3e0' : '#e3f2fd',
-                                color: 
-                                  meeting.status === 'completed' ? '#2e7d32' : 
-                                  meeting.status === 'cancelled' ? '#c62828' : 
-                                  meeting.status === 'in-progress' ? '#ef6c00' : '#0277bd',
-                                textTransform: 'capitalize'
-                              }} 
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Button 
-                              variant="outlined"
-                              color="primary"
-                              size="small"
-                              onClick={() => handleFetchQuestionsByMeeting(meeting.id)}
-                              startIcon={<FeedbackIcon />}
-                            >
-                              Feedback
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-              );
-            })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            ) : (
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Typography variant="body1" color="textSecondary">
-                  No meetings scheduled at this time.
-                </Typography>
-                <Button 
-                  variant="outlined" 
-                  color="primary"
-                  onClick={() => fetchMeetingsDirectly()}
-                  sx={{ mt: 2 }}
-                >
-                  Refresh Meetings
-                </Button>
-      </Box>
-            )}
-          </>
-        )}
-      </Paper>
-    );
-  };
-
-  // Helper function to get department name by ID
-  const getDepartmentNameById = (id) => {
-    if (!id) return null;
-    
-    const departmentMap = {
-      1: 'Computer Science and Engineering',
-      2: 'Information Technology',
-      3: 'Electronics and Communication',
-      4: 'Electrical Engineering',
-      5: 'Mechanical Engineering'
-    };
-    
-    return departmentMap[id] || `Department ${id}`;
-  };
-
-  // Update sidebar click handler
+  // Update handleSectionChange function
   const handleSectionChange = (sectionName) => {
     console.log('Changing section to:', sectionName);
     dispatch(setActiveSection(sectionName));
@@ -965,376 +765,154 @@ const StaffDashboard = () => {
     }
   };
 
-  // Update tabs array
-  const tabs = [
-    { id: 0, label: "Profile", icon: <PersonIcon />, section: 'profile' },
-    { id: 1, label: "View Meetings", icon: <EventIcon />, section: 'view-meetings' },
-    { id: 2, label: "Submit Feedback", icon: <QuestionAnswerIcon />, section: 'submit-feedback' }
-  ];
-
-  // Render meeting timer section
-  const renderMeetingTimer = () => {
-    // Add a countdown timer effect
-    const [countdown, setCountdown] = useState({
-      minutes: nextMeeting?.minutesLeft || 0,
-      seconds: nextMeeting?.secondsLeft || 0
+  // Add polling for upcoming meetings
+  const checkForUpcomingMeetings = () => {
+    if (!meetings || (!meetings.futureMeetings && !meetings.currentMeetings)) return;
+    
+    console.log('Checking for upcoming meetings within 5 minutes window...');
+    
+    const now = new Date();
+    let upcomingMeeting = null;
+    let minutesUntilStart = Infinity;
+    
+    // Get all meetings 
+    const allMeetings = [
+      ...(meetings.currentMeetings || []),
+      ...(meetings.futureMeetings || [])
+    ];
+    
+    // Find the closest upcoming meeting
+    allMeetings.forEach(meeting => {
+      // Parse meeting date and time
+      let meetingDate = meeting.date || meeting.meetingDate;
+      const meetingTime = meeting.startTime || '00:00';
+      
+      // If date is an ISO string (contains 'T'), extract just the date part
+      if (typeof meetingDate === 'string' && meetingDate.includes('T')) {
+        meetingDate = meetingDate.split('T')[0]; // Extract just the YYYY-MM-DD part
+      }
+      
+      const meetingDateTime = new Date(`${meetingDate}T${meetingTime}`);
+      
+      if (isNaN(meetingDateTime.getTime())) {
+        console.log(`Invalid meeting date/time for meeting ${meeting.id}`);
+        return; // Skip this meeting
+      }
+      
+      // Calculate minutes until meeting starts
+      const diffMs = meetingDateTime.getTime() - now.getTime();
+      const minsUntil = Math.floor(diffMs / 60000);
+      
+      // If this meeting is closer than our current closest but still in the future
+      if (minsUntil >= -60 && minsUntil < minutesUntilStart) {
+        minutesUntilStart = minsUntil;
+        upcomingMeeting = meeting;
+      }
     });
     
-    // Initialize countdown from localStorage when component mounts
-    useEffect(() => {
-      try {
-        // First try to get staff-specific timer data
-        const storedStaffTimer = localStorage.getItem('staffNextMeetingData');
-        console.log('Staff Dashboard: Looking for staff-specific timer data');
-        
-        if (storedStaffTimer) {
-          const timerData = JSON.parse(storedStaffTimer);
-          console.log('Staff Dashboard: Retrieved staff-specific timer data:', timerData);
-          
-          // Always recalculate time from original date if available
-          if (timerData.originalDate) {
-            const now = new Date();
-            const meetingDate = new Date(timerData.originalDate + 'T' + (timerData.time || '00:00'));
-            
-            if (!isNaN(meetingDate.getTime())) {
-              const diffMs = Math.max(0, meetingDate - now);
-              const diffMins = Math.floor(diffMs / 60000);
-              const diffSecs = Math.floor((diffMs % 60000) / 1000);
-              
-              console.log('Staff Dashboard: Recalculating timer from original date:', timerData.originalDate);
-              console.log(`Staff Dashboard: Calculated ${diffMins}m ${diffSecs}s until meeting`);
-              
-              setCountdown({
-                minutes: diffMins,
-                seconds: diffSecs
-              });
-              
-              // Update localStorage with fresh values
-              const updatedTimer = {
-                ...timerData,
-                minutesLeft: diffMins,
-                secondsLeft: diffSecs
-              };
-              localStorage.setItem('staffNextMeetingData', JSON.stringify(updatedTimer));
-              
-              console.log('Staff Dashboard: Updated staff timer: ', diffMins, 'minutes,', diffSecs, 'seconds');
-              return;
-            } else {
-              console.log('Staff Dashboard: Invalid meeting date:', timerData.originalDate);
-            }
-          } else if (timerData.minutesLeft !== undefined && timerData.secondsLeft !== undefined) {
-            // Fallback to stored values if we can't recalculate
-            console.log('Staff Dashboard: No original date found, using stored countdown values');
-            setCountdown({
-              minutes: timerData.minutesLeft,
-              seconds: timerData.secondsLeft
-            });
-            return;
-          }
-        } else {
-          console.log('Staff Dashboard: No staff-specific timer data found');
-        }
-        
-        // No valid staff timer found, try to rebuild it from meetings
-        if (rebuildStaffTimerFromMeetings()) {
-          console.log('Staff Dashboard: Successfully rebuilt timer from meetings data');
-          return;
-        }
-        
-        // Fallback to generic timer data only if necessary
-        const storedTimer = localStorage.getItem('nextMeetingData');
-        if (storedTimer) {
-          const timerData = JSON.parse(storedTimer);
-          console.log('Staff Dashboard: Checking generic timer data:', timerData);
-          
-          // Only use this data if it's for staff role
-          if (timerData.role?.toLowerCase() === 'staff') {
-            console.log('Staff Dashboard: Using generic timer data with staff role');
-            
-            // Always recalculate time from original date if available
-            if (timerData.originalDate) {
-              const now = new Date();
-              const meetingDate = new Date(timerData.originalDate + 'T' + (timerData.time || '00:00'));
-              
-              if (!isNaN(meetingDate.getTime())) {
-                const diffMs = Math.max(0, meetingDate - now);
-                const diffMins = Math.floor(diffMs / 60000);
-                const diffSecs = Math.floor((diffMs % 60000) / 1000);
-                
-                console.log('Staff Dashboard: Recalculating timer from generic data original date');
-                console.log(`Staff Dashboard: Calculated ${diffMins}m ${diffSecs}s until meeting`);
-                
-                setCountdown({
-                  minutes: diffMins,
-                  seconds: diffSecs
-                });
-                
-                // Create staff-specific timer data
-                const updatedTimer = {
-                  ...timerData,
-                  minutesLeft: diffMins,
-                  secondsLeft: diffSecs
-                };
-                localStorage.setItem('staffNextMeetingData', JSON.stringify(updatedTimer));
-                
-                console.log('Staff Dashboard: Created staff timer from generic data');
-                return;
-              } else if (timerData.minutesLeft !== undefined && timerData.secondsLeft !== undefined) {
-                // Fallback to stored values if we can't recalculate
-                console.log('Staff Dashboard: No original date in generic data, using stored values');
-                setCountdown({
-                  minutes: timerData.minutesLeft,
-                  seconds: timerData.secondsLeft
-                });
-              }
-            } else {
-              console.log('Staff Dashboard: Generic timer is not for staff role:', timerData.role);
-            }
-          } else {
-            console.log('Staff Dashboard: Generic timer is not for staff role:', timerData.role);
-          }
-        }
-      } catch (error) {
-        console.error('Staff Dashboard: Error initializing countdown from localStorage:', error);
-      }
-    }, []);
-    
-    // Keep the timer running
-    useEffect(() => {
-      if (!countdown || (countdown.minutes === 0 && countdown.seconds === 0)) {
-        return; // Don't start timer if no valid countdown
-      }
+    // If we found an upcoming meeting within 5 minutes, show questions
+    if (upcomingMeeting && minutesUntilStart <= 5 && minutesUntilStart >= -60) {
+      console.log(`Found meeting starting in ${minutesUntilStart} minutes:`, upcomingMeeting.title);
       
-      console.log('Staff Dashboard: Starting countdown timer with values:', countdown);
+      // Set as active meeting
+      setActiveMeeting(upcomingMeeting);
+      setShouldShowQuestions(true);
       
-      // Set up the interval to update every second
-      const timer = setInterval(() => {
-        setCountdown(prev => {
-          // Calculate new values
-          let newSeconds = prev.seconds - 1;
-          let newMinutes = prev.minutes;
-          
-          if (newSeconds < 0) {
-            newSeconds = 59;
-            newMinutes = newMinutes - 1;
-          }
-          
-          // Don't go below zero
-          if (newMinutes < 0) {
-            newMinutes = 0;
-            newSeconds = 0;
-            clearInterval(timer);
-          }
-          
-          // Update localStorage with current values
-          try {
-            // Update both generic and staff-specific timer data
-            const storedStaffTimer = localStorage.getItem('staffNextMeetingData');
-            if (storedStaffTimer) {
-              const timerData = JSON.parse(storedStaffTimer);
-              const updatedTimer = {
-                ...timerData,
-                minutesLeft: newMinutes,
-                secondsLeft: newSeconds
-              };
-              localStorage.setItem('staffNextMeetingData', JSON.stringify(updatedTimer));
-            }
-            
-            // Also update the generic timer for backwards compatibility
-            const storedGenericTimer = localStorage.getItem('nextMeetingData');
-            if (storedGenericTimer) {
-              const timerData = JSON.parse(storedGenericTimer);
-              // Only update if it's a staff timer
-              if (timerData.role?.toLowerCase() === 'staff') {
-                const updatedTimer = {
-                  ...timerData,
-                  minutesLeft: newMinutes,
-                  secondsLeft: newSeconds
-                };
-                localStorage.setItem('nextMeetingData', JSON.stringify(updatedTimer));
-              }
-            }
-          } catch (error) {
-            console.error('Staff Dashboard: Error updating timer in localStorage:', error);
-          }
-          
-          return { minutes: newMinutes, seconds: newSeconds };
+      // If we're on the feedback section, load questions for this meeting
+      if (activeSection === 'submit-feedback') {
+        fetchQuestions(upcomingMeeting.id);
+      } else {
+        // Show notification about available feedback
+        setSnackbar({
+          open: true,
+          message: `Questions are now available for the upcoming meeting: ${upcomingMeeting.title}`,
+          severity: 'info'
         });
-      }, 1000);
-      
-      // Clean up when component unmounts
-      return () => {
-        clearInterval(timer);
-      };
-    }, [countdown]);
-    
-    // Get meeting details from localStorage if not available from Redux
-    const meetingDetails = React.useMemo(() => {
-      if (nextMeeting?.date && nextMeeting?.time) {
-        return nextMeeting;
       }
+    } else if (upcomingMeeting) {
+      console.log(`Next meeting is in ${minutesUntilStart} minutes, no questions yet.`);
       
-      try {
-        // First try staff-specific timer data
-        const storedStaffTimer = localStorage.getItem('staffNextMeetingData');
-        if (storedStaffTimer) {
-          const timerData = JSON.parse(storedStaffTimer);
-          console.log('Staff Dashboard: Using staff-specific meeting details:', timerData);
-          if (timerData.date && timerData.time) {
-            return timerData;
-          }
+      // We have a meeting but it's not within 5 minutes
+      // Just set it as active meeting for tracking
+      setActiveMeeting(upcomingMeeting);
+      setShouldShowQuestions(false);
+      
+      // Schedule the questions to show at the right time
+      if (minutesUntilStart > 5) {
+        // Clear any existing timer
+        if (nextMeetingTimer) {
+          clearTimeout(nextMeetingTimer);
         }
         
-        // Fallback to generic timer data only if it's for staff
-        const storedTimer = localStorage.getItem('nextMeetingData');
-        if (storedTimer) {
-          const timerData = JSON.parse(storedTimer);
-          if (timerData.role?.toLowerCase() === 'staff' && timerData.date && timerData.time) {
-            console.log('Staff Dashboard: Using generic meeting data with staff role');
-            return timerData;
-          }
-        }
-      } catch (e) {
-        console.error('Staff Dashboard: Error getting meeting details from localStorage:', e);
-      }
-      
-      return null;
-    }, [nextMeeting]);
-    
-    // Debug function to rebuild timer from localStorage
-    const rebuildStaffTimerFromMeetings = () => {
-      try {
-        // Check for staff meetings in localStorage and create a timer if found
-        const storedMeetings = localStorage.getItem('submittedMeetings');
-        if (storedMeetings) {
-          const parsedMeetings = JSON.parse(storedMeetings);
-          console.log('Staff Dashboard: Checking submittedMeetings for staff meetings:', parsedMeetings.length);
+        // Schedule when to show questions (5 minutes before)
+        const timeoutMs = (minutesUntilStart - 5) * 60 * 1000;
+        console.log(`Scheduling questions to appear in ${Math.floor(timeoutMs/60000)} minutes`);
+        
+        const newTimer = setTimeout(() => {
+          console.log(`It's 5 minutes before meeting ${upcomingMeeting.id}, showing questions now`);
+          setShouldShowQuestions(true);
           
-          // Filter for staff meetings only
-          const staffMeetings = parsedMeetings.filter(m => 
-            (m.role || '').toLowerCase() === 'staff'
-          );
-          
-          console.log(`Staff Dashboard: Found ${staffMeetings.length} staff meetings out of ${parsedMeetings.length} total`);
-          
-          if (staffMeetings.length > 0) {
-            // Find next upcoming staff meeting
-            const now = new Date();
-            const upcomingStaffMeetings = staffMeetings
-              .filter(m => {
-                // Handle both date formats
-                const meetingDate = new Date(m.date || m.meetingDate || '');
-                return !isNaN(meetingDate.getTime()) && meetingDate > now;
-              })
-              .sort((a, b) => {
-                const dateA = new Date(a.date || a.meetingDate || '');
-                const dateB = new Date(b.date || b.meetingDate || '');
-                return dateA - dateB;
-              });
-            
-            if (upcomingStaffMeetings.length > 0) {
-              const nextStaffMeeting = upcomingStaffMeetings[0];
-              const meetingDate = new Date(nextStaffMeeting.date || nextStaffMeeting.meetingDate || '');
-              const meetingTime = nextStaffMeeting.startTime || '00:00';
-              
-              // Add time component to date
-              const [hours, minutes] = meetingTime.split(':').map(Number);
-              meetingDate.setHours(hours || 0, minutes || 0, 0, 0);
-              
-              // Calculate countdown
-              const diffMs = Math.max(0, meetingDate - now);
-              const diffMins = Math.floor(diffMs / 60000);
-              const diffSecs = Math.floor((diffMs % 60000) / 1000);
-              
-              // Create new timer data
-              const nextStaffMeetingData = {
-                id: nextStaffMeeting.id,
-                title: nextStaffMeeting.title,
-                date: meetingDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
-                time: meetingTime,
-                minutesLeft: diffMins,
-                secondsLeft: diffSecs,
-                originalDate: nextStaffMeeting.date || nextStaffMeeting.meetingDate,
-                department: nextStaffMeeting.department || nextStaffMeeting.departmentId,
-                role: 'staff'
-              };
-              
-              // Set countdown and store timer data
-              setCountdown({
-                minutes: diffMins,
-                seconds: diffSecs
-              });
-              
-              localStorage.setItem('staffNextMeetingData', JSON.stringify(nextStaffMeetingData));
-              
-              dispatch(showSnackbar({
-                message: `Timer created for next staff meeting: ${nextStaffMeeting.title}`,
-                severity: 'success'
-              }));
-              return true;
-            }
-          }
-          
-          dispatch(showSnackbar({
-            message: 'No upcoming staff meetings found',
+          // Show notification
+          setSnackbar({
+            open: true,
+            message: `Questions are now available for meeting: ${upcomingMeeting.title}`,
             severity: 'info'
-          }));
-          return false;
-        }
-        return false;
-      } catch (error) {
-        console.error('Staff Dashboard: Error rebuilding timer from meetings:', error);
-        return false;
-      }
-    };
-
-    // Helper function to format time with AM/PM
-    const formatTimeWithAMPM = (timeString) => {
-      if (!timeString) return '';
-      
-      // If already includes AM/PM, return as is
-      if (timeString.includes('AM') || timeString.includes('PM') || 
-          timeString.includes('am') || timeString.includes('pm')) {
-        return timeString;
-      }
-      
-      // Parse the time string (expected format: "HH:MM")
-      const [hours, minutes] = timeString.split(':').map(part => parseInt(part, 10));
-      if (isNaN(hours) || isNaN(minutes)) return timeString;
-      
-      const period = hours >= 12 ? 'PM' : 'AM';
-      const hours12 = hours % 12 || 12; // Convert 0 to 12 for 12 AM
-      
-      return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
-    };
-
-    return (
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h5" gutterBottom>
-          Meeting Timer
-        </Typography>
+          });
+          
+          // If already on feedback section, load questions
+          if (activeSection === 'submit-feedback') {
+            fetchQuestions(upcomingMeeting.id);
+          }
+        }, timeoutMs);
         
-        {meetingDetails ? (
-          <Typography variant="body1">
-            {`Next meeting: ${meetingDetails.title} at ${meetingDetails.date} ${meetingDetails.time}`}
-          </Typography>
-        ) : (
-          <Typography variant="body1" sx={{ textAlign: 'center', color: 'text.secondary', py: 4 }}>
-            No upcoming meeting scheduled.
-          </Typography>
-        )}
-      </Box>
-    );
+        setNextMeetingTimer(newTimer);
+      }
+    }
   };
 
-  // Handle fetching questions for a specific meeting
-  const handleFetchQuestionsByMeeting = (meetingId) => {
-    // First switch to the feedback section
-    setActiveSection('feedback');
+  // Add polling interval setup
+  const startPollingForMeetings = () => {
+    // Clear any existing interval
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
     
-    // Then fetch questions for this meeting
-    fetchQuestions(meetingId);
+    console.log('Starting to poll for upcoming meetings every 30 seconds');
+    
+    // Initial check
+    checkForUpcomingMeetings();
+    
+    // Set up new interval
+    pollingIntervalRef.current = setInterval(() => {
+      checkForUpcomingMeetings();
+    }, 30000); // 30 seconds interval
   };
+
+  // Function to stop polling
+  const stopPollingForMeetings = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    
+    if (nextMeetingTimer) {
+      clearTimeout(nextMeetingTimer);
+    }
+  };
+
+  // Set up polling in a useEffect
+  useEffect(() => {
+    // Start polling for meetings after they've been loaded
+    if (meetings && (meetings.currentMeetings || meetings.futureMeetings)) {
+      startPollingForMeetings();
+    }
+    
+    // Clean up on component unmount
+    return () => {
+      stopPollingForMeetings();
+    };
+  }, [meetings, activeSection, fetchQuestions]);
 
   // Main content
   const renderMainContent = () => {
@@ -1342,77 +920,60 @@ const StaffDashboard = () => {
     
     switch(activeSection) {
       case 'profile':
-        return renderProfile();
+        return (
+          <ProfileSection 
+            userProfile={profile} 
+            loading={loading}
+          />
+        );
       case 'view-meetings':
-        return renderViewMeetingSchedule();
+        return (
+          <MeetingScheduleSection 
+            meetings={{
+              pastMeetings: meetings.pastMeetings || [],
+              currentMeetings: meetings.currentMeetings || [],
+              futureMeetings: meetings.futureMeetings || []
+            }}
+            loading={meetingsLoading}
+            error={meetingsError}
+            handleFetchQuestionsByMeeting={handleFetchQuestionsByMeeting}
+            handleRefreshMeetings={fetchMeetingsDirectly}
+          />
+        );
       case 'submit-feedback':
-        return renderFeedback();
-      case 'meeting-timer':
-        return renderMeetingTimer();
+        return (
+          <FeedbackSection 
+            questions={localQuestions.length > 0 ? localQuestions : (questions || [])}
+            localRatings={localRatings}
+            handleRatingChange={handleRatingChange}
+            handleSubmitFeedback={handleSubmitFeedback}
+            loading={loading}
+            questionsLoading={questionsLoading}
+            questionsError={questionsError}
+            activeMeeting={activeMeeting}
+            feedbackSubmitted={feedbackSubmitted}
+            setFeedbackSubmitted={setFeedbackSubmitted}
+            shouldShowQuestions={shouldShowQuestions}
+          />
+        );
       default:
-        return renderProfile();
+        return (
+          <ProfileSection 
+            userProfile={profile} 
+            loading={loading}
+          />
+        );
     }
   }
 
   return (
     <Box sx={{ display: 'flex' }}>
       {/* Sidebar */}
-      <Box 
-        sx={{
-          width: 240,
-          bgcolor: '#1A2137',
-          color: 'white',
-          height: '100vh',
-          position: 'fixed',
-          left: 0,
-          top: 0,
-          zIndex: 1
-        }}
-      >
-        <Box sx={{ p: 3, pb: 2, bgcolor: '#2A3147' }}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#FFFFFF' }}>
-            Staff Dashboard
-          </Typography>
-        </Box>
-        
-        <List sx={{ p: 0 }}>
-          {tabs.map((tab) => (
-            <ListItem 
-              key={tab.id}
-              button 
-              onClick={() => handleSectionChange(tab.section)}
-              sx={{ 
-                py: 2, 
-                pl: 3,
-                bgcolor: activeSection === tab.section ? '#2A3147' : 'transparent',
-                '&:hover': { bgcolor: '#2A3147' }
-              }}
-            >
-              <ListItemIcon sx={{ color: '#FFFFFF', minWidth: 30 }}>
-                {tab.icon}
-              </ListItemIcon>
-              <ListItemText primary={tab.label} sx={{ color: '#FFFFFF' }} />
-            </ListItem>
-          ))}
-        </List>
-        
-        <Box sx={{ position: 'absolute', bottom: 0, width: '100%' }}>
-          <ListItem 
-            button 
-            onClick={handleLogout}
-            sx={{ 
-              py: 2, 
-              pl: 3,
-              '&:hover': { bgcolor: '#2A3147' }
-            }}
-          >
-            <ListItemIcon sx={{ color: '#FFFFFF', minWidth: 30 }}>
-              <LogoutIcon />
-            </ListItemIcon>
-            <ListItemText primary="Logout" sx={{ color: '#FFFFFF' }} />
-          </ListItem>
-        </Box>
-      </Box>
+      <SidebarComponent 
+        activeSection={activeSection} 
+        handleSectionChange={handleSectionChange} 
+        handleLogout={handleLogout}
+      />
 
       {/* Main content */}
       <Box 

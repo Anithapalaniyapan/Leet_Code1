@@ -3,6 +3,7 @@ const Question = db.question;
 const Department = db.department;
 const User = db.user;
 const Role = db.role;
+const { Op } = require('sequelize');
 
 // Create a new question
 exports.createQuestion = async (req, res) => {
@@ -394,6 +395,191 @@ exports.getQuestionsByMeeting = async (req, res) => {
     res.status(200).send(formattedQuestions);
   } catch (error) {
     console.error('Error fetching questions by meeting:', error);
+    res.status(500).send({ message: error.message });
+  }
+};
+
+// Get questions that are available for meetings starting within 5 minutes
+exports.getAvailableQuestions = async (req, res) => {
+  try {
+    const userId = req.userId;
+    
+    // Get user details to filter questions correctly
+    const user = await db.user.findByPk(userId, {
+      include: [
+        {
+          model: db.department,
+          as: 'department'
+        }
+      ]
+    });
+    
+    if (!user) {
+      return res.status(404).send({ message: 'User not found' });
+    }
+    
+    // Get current date and time
+    const now = new Date();
+    
+    // Calculate the cutoff time (now + 5 minutes)
+    const cutoffTime = new Date(now.getTime() + (5 * 60 * 1000));
+    
+    // Format dates for SQL query
+    const nowDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const nowTime = now.toTimeString().split(' ')[0]; // HH:MM:SS
+    
+    // Find meetings that:
+    // 1. Match the user's role, department, and year
+    // 2. Are scheduled to start between now and the next 5 minutes
+    const meetings = await db.meeting.findAll({
+      where: {
+        // Meeting role matches user's role (for student, roleId = 1)
+        roleId: 1, // Assuming 1 is for students
+        
+        // Match user's department or is for all departments
+        [Op.or]: [
+          { departmentId: user.department?.id },
+          { departmentId: null }
+        ],
+        
+        // Match user's year or is for all years
+        [Op.or]: [
+          { year: user.year },
+          { year: null }
+        ],
+        
+        // Meeting date is today
+        meetingDate: nowDate,
+        
+        // Meeting starts between now and 5 minutes from now
+        [Op.and]: [
+          { startTime: { [Op.gte]: nowTime } },
+          { startTime: { [Op.lte]: cutoffTime.toTimeString().split(' ')[0] } }
+        ],
+        
+        // Not completed or cancelled
+        status: { [Op.notIn]: ['completed', 'cancelled'] }
+      },
+      order: [
+        ['meetingDate', 'ASC'],
+        ['startTime', 'ASC']
+      ]
+    });
+    
+    if (meetings.length === 0) {
+      return res.status(200).send([]);
+    }
+    
+    // Get the closest upcoming meeting
+    const upcomingMeeting = meetings[0];
+    
+    // Get questions for this meeting
+    const questions = await Question.findAll({
+      where: { 
+        meetingId: upcomingMeeting.id,
+        active: true
+      },
+      include: [{
+        model: Department,
+        as: 'department',
+        attributes: ['id', 'name']
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+    
+    // Format questions for frontend
+    const formattedQuestions = questions.map(q => ({
+      id: q.id,
+      text: q.text,
+      targetRole: q.role,
+      departmentId: q.departmentId,
+      department: q.department ? q.department.name : null,
+      year: q.year,
+      roleId: q.role === 'student' ? 1 : q.role === 'staff' ? 2 : 3,
+      active: q.active,
+      meetingId: q.meetingId,
+      meeting: {
+        id: upcomingMeeting.id,
+        title: upcomingMeeting.title,
+        date: upcomingMeeting.meetingDate,
+        startTime: upcomingMeeting.startTime
+      }
+    }));
+    
+    res.status(200).send(formattedQuestions);
+  } catch (error) {
+    console.error('Error getting available questions:', error);
+    res.status(500).send({ message: error.message });
+  }
+};
+
+// Get questions for a specific meeting, but only if it's within 5 minutes of starting
+exports.getQuestionsForMeetingIfAvailable = async (req, res) => {
+  try {
+    const meetingId = req.params.meetingId;
+    const userId = req.userId;
+    
+    if (!meetingId) {
+      return res.status(400).send({ message: 'Meeting ID is required' });
+    }
+    
+    // Check if meeting exists
+    const meeting = await db.meeting.findByPk(meetingId);
+    if (!meeting) {
+      return res.status(404).send({ message: 'Meeting not found' });
+    }
+    
+    // Check if meeting is within 5 minutes of starting
+    const now = new Date();
+    const meetingDateTime = new Date(`${meeting.meetingDate}T${meeting.startTime}`);
+    
+    // Calculate time difference in milliseconds
+    const diffMs = meetingDateTime - now;
+    
+    // If meeting is more than 5 minutes away or has already passed, don't show questions
+    if (diffMs < 0 || diffMs > 5 * 60 * 1000) {
+      return res.status(200).send({ 
+        message: 'Questions not available yet. They will be available 5 minutes before the meeting.',
+        availableIn: Math.floor(diffMs / 60000) - 5
+      });
+    }
+    
+    // Get questions for this meeting
+    const questions = await Question.findAll({
+      where: { 
+        meetingId: meetingId,
+        active: true
+      },
+      include: [{
+        model: Department,
+        as: 'department',
+        attributes: ['id', 'name']
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+    
+    // Format questions for frontend
+    const formattedQuestions = questions.map(q => ({
+      id: q.id,
+      text: q.text,
+      targetRole: q.role,
+      departmentId: q.departmentId,
+      department: q.department ? q.department.name : null,
+      year: q.year,
+      roleId: q.role === 'student' ? 1 : q.role === 'staff' ? 2 : 3,
+      active: q.active,
+      meetingId: q.meetingId,
+      meeting: {
+        id: meeting.id,
+        title: meeting.title,
+        date: meeting.meetingDate,
+        startTime: meeting.startTime
+      }
+    }));
+    
+    res.status(200).send(formattedQuestions);
+  } catch (error) {
+    console.error('Error fetching questions by meeting availability:', error);
     res.status(500).send({ message: error.message });
   }
 };
