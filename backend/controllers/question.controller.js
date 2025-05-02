@@ -84,8 +84,11 @@ exports.createQuestion = async (req, res) => {
 // Get all questions
 exports.getAllQuestions = async (req, res) => {
   try {
-    // Get user to determine their role
-    const user = await User.findByPk(req.userId, {
+    // Check if a specific role filter is provided in query params
+    const requestedRole = req.query.role;
+    
+    // Get user from request
+    const user = await db.user.findByPk(req.userId, {
       include: [{
         model: Role,
         as: 'primaryRole',
@@ -102,8 +105,33 @@ exports.getAllQuestions = async (req, res) => {
       active: true
     };
     
-    // If user has a primary role
-    if (user.primaryRole) {
+    // If role is explicitly requested in the query param, prioritize that
+    if (requestedRole) {
+      if (requestedRole === 'staff') {
+        // For staff questions, include 'staff' and 'both' roles
+        whereCondition.role = {
+          [db.Sequelize.Op.or]: ['staff', 'both']
+        };
+        
+        // Match their department if available
+        if (user.departmentId) {
+          whereCondition.departmentId = user.departmentId;
+        }
+      } else if (requestedRole === 'student') {
+        // For student questions, include 'student' and 'both' roles
+        whereCondition.role = {
+          [db.Sequelize.Op.or]: ['student', 'both']
+        };
+        
+        // Match their department and year if available
+        if (user.departmentId && user.year) {
+          whereCondition.departmentId = user.departmentId;
+          whereCondition.year = user.year;
+        }
+      }
+    }
+    // Otherwise, use the user's primary role to determine questions
+    else if (user.primaryRole) {
       const roleName = user.primaryRole.name.toLowerCase();
       
       // For students and staff, filter by their role
@@ -123,6 +151,8 @@ exports.getAllQuestions = async (req, res) => {
       // For academic directors and executive directors, show all questions
       // by not applying any role filter
     }
+    
+    console.log('Query conditions for getAllQuestions:', whereCondition); // Add debugging
     
     const questions = await Question.findAll({
       where: whereCondition,
@@ -354,6 +384,7 @@ exports.getQuestionsByCreator = async (req, res) => {
 exports.getQuestionsByMeeting = async (req, res) => {
   try {
     const meetingId = req.params.meetingId;
+    const role = req.query.role; // Get role from query parameters
     
     if (!meetingId) {
       return res.status(400).send({ message: 'Meeting ID is required' });
@@ -365,12 +396,30 @@ exports.getQuestionsByMeeting = async (req, res) => {
       return res.status(404).send({ message: 'Meeting not found' });
     }
     
-    // Get questions for this meeting
+    // Build the where condition
+    const whereCondition = { 
+      meetingId: meetingId,
+      active: true
+    };
+    
+    // Add role filter if provided
+    if (role) {
+      if (role === 'staff') {
+        // For staff questions, include 'staff' and 'both' roles
+        whereCondition.role = {
+          [db.Sequelize.Op.or]: ['staff', 'both']
+        };
+      } else if (role === 'student') {
+        // For student questions, include 'student' and 'both' roles 
+        whereCondition.role = {
+          [db.Sequelize.Op.or]: ['student', 'both']
+        };
+      }
+    }
+    
+    // Get questions for this meeting with role filter if provided
     const questions = await Question.findAll({
-      where: { 
-        meetingId: meetingId,
-        active: true
-      },
+      where: whereCondition,
       include: [{
         model: Department,
         as: 'department',
@@ -580,6 +629,167 @@ exports.getQuestionsForMeetingIfAvailable = async (req, res) => {
     res.status(200).send(formattedQuestions);
   } catch (error) {
     console.error('Error fetching questions by meeting availability:', error);
+    res.status(500).send({ message: error.message });
+  }
+};
+
+// Get latest questions for the current user
+exports.getLatestQuestions = async (req, res) => {
+  try {
+    // Get user to determine their role and department
+    const user = await User.findByPk(req.userId, {
+      include: [
+        {
+          model: Role,
+          as: 'primaryRole',
+          attributes: ['id', 'name']
+        }, 
+        {
+          model: Department,
+          as: 'department',
+          attributes: ['id', 'name']
+        }
+      ]
+    });
+    
+    if (!user) {
+      return res.status(404).send({ message: 'User not found' });
+    }
+    
+    // Check if user has a department assigned
+    if (!user.departmentId && !user.department) {
+      return res.status(400).send({ 
+        message: 'User does not have a department assigned. Please contact the administrator.' 
+      });
+    }
+    
+    // Determine which questions to show based on user's primary role
+    let whereCondition = {
+      active: true
+    };
+    
+    // Always filter by the user's department
+    whereCondition.departmentId = user.departmentId;
+    
+    // If user has a primary role
+    let userRole = 'staff'; // Default role
+    if (user.primaryRole) {
+      userRole = user.primaryRole.name.toLowerCase();
+    }
+    
+    // Add role-specific filtering
+    if (userRole === 'student') {
+      whereCondition.role = {
+        [Op.or]: ['student', 'both']
+      };
+      
+      // If student has a year assigned, filter by that as well
+      if (user.year) {
+        whereCondition.year = user.year;
+      }
+    } else if (userRole === 'staff') {
+      whereCondition.role = {
+        [Op.or]: ['staff', 'both']
+      };
+    }
+    
+    // Try to find questions for upcoming or current meetings first
+    const currentDate = new Date();
+    
+    // Find meetings that are happening today or in the future
+    const activeMeetings = await db.meeting.findAll({
+      where: {
+        departmentId: user.departmentId,
+        meetingDate: {
+          [Op.gte]: new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate())
+        }
+      },
+      order: [['meetingDate', 'ASC']],
+      limit: 3
+    });
+    
+    let questions = [];
+    
+    // If we have active meetings, get questions for the most immediate one
+    if (activeMeetings && activeMeetings.length > 0) {
+      const nextMeeting = activeMeetings[0];
+      console.log('Found upcoming meeting:', nextMeeting.title, 'on', nextMeeting.meetingDate);
+      
+      const meetingQuestions = await Question.findAll({
+        where: {
+          ...whereCondition,
+          meetingId: nextMeeting.id
+        },
+        include: [
+          {
+            model: Department,
+            as: 'department',
+            attributes: ['id', 'name']
+          },
+          {
+            model: db.meeting,
+            as: 'meeting',
+            attributes: ['id', 'title', 'status', 'meetingDate', 'startTime', 'endTime']
+          }
+        ],
+        order: [['createdAt', 'DESC']]
+      });
+      
+      if (meetingQuestions.length > 0) {
+        questions = meetingQuestions;
+      }
+    }
+    
+    // If no questions were found for active meetings, get the most recent questions for the department
+    if (questions.length === 0) {
+      questions = await Question.findAll({
+        where: whereCondition,
+        include: [
+          {
+            model: Department,
+            as: 'department',
+            attributes: ['id', 'name']
+          },
+          {
+            model: db.meeting,
+            as: 'meeting',
+            attributes: ['id', 'title', 'status', 'meetingDate', 'startTime', 'endTime']
+          }
+        ],
+        order: [['createdAt', 'DESC']],
+        limit: 10
+      });
+    }
+    
+    // Format questions for frontend
+    const formattedQuestions = questions.map(q => ({
+      id: q.id,
+      question: q.text,
+      targetRole: q.role,
+      departmentId: q.departmentId,
+      department: q.department ? q.department.name : null,
+      year: q.year,
+      roleId: q.role === 'student' ? 1 : q.role === 'staff' ? 2 : 3,
+      active: q.active,
+      meetingId: q.meetingId,
+      meeting: q.meeting ? {
+        id: q.meeting.id,
+        title: q.meeting.title,
+        status: q.meeting.status,
+        date: q.meeting.meetingDate,
+        startTime: q.meeting.startTime,
+        endTime: q.meeting.endTime
+      } : null
+    }));
+    
+    res.status(200).send({
+      questions: formattedQuestions,
+      message: formattedQuestions.length > 0 
+        ? 'Successfully retrieved latest questions' 
+        : 'No questions found for your department and role'
+    });
+  } catch (error) {
+    console.error('Error getting latest questions:', error);
     res.status(500).send({ message: error.message });
   }
 };

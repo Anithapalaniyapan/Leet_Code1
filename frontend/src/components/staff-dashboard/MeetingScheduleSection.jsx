@@ -21,6 +21,7 @@ import FeedbackIcon from '@mui/icons-material/Feedback';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EventIcon from '@mui/icons-material/Event';
 import scheduleAnimation from '../../assets/animations/calendar.json';
+import InfoIcon from '@mui/icons-material/Info';
 
 const MeetingScheduleSection = ({ 
   meetings = { pastMeetings: [], currentMeetings: [], futureMeetings: [] },
@@ -139,17 +140,28 @@ const MeetingScheduleSection = ({
   if (uniqueMeetings.length === 0) {
     return (
       <Paper sx={{ 
-        p: 4, 
-        borderRadius: 0,
+        p: 3, 
+        borderRadius: 2,
         background: 'linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)',
+        minHeight: '350px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: '400px',
-        textAlign: 'center'
+        position: 'relative',
+        overflow: 'hidden'
       }}>
-        <Box sx={{ width: '200px', height: '200px', mb: 3 }}>
+        {/* Background design elements */}
+        <Box sx={{
+          position: 'absolute',
+          top: 20,
+          right: 20,
+          width: '250px',
+          height: '250px',
+          opacity: 0.1,
+          zIndex: 0,
+          transform: 'rotate(5deg)'
+        }}>
           <Player
             autoplay
             loop
@@ -157,20 +169,89 @@ const MeetingScheduleSection = ({
             style={{ width: '100%', height: '100%' }}
           />
         </Box>
-        <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#1A2137', mb: 2 }}>
-          No meetings scheduled
-        </Typography>
-        <Typography variant="body1" sx={{ color: '#555', maxWidth: '600px', mx: 'auto', mb: 3 }}>
-          There are no meetings scheduled for you at this time.
-        </Typography>
-        <Button
-          variant="outlined"
-          color="primary"
-          onClick={handleRefreshMeetings}
-          startIcon={<RefreshIcon />}
-        >
-          Refresh Meetings
-        </Button>
+
+        <Card sx={{
+          maxWidth: 500,
+          width: '100%',
+          py: 3,
+          px: 4,
+          borderRadius: 3,
+          boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+          position: 'relative',
+          background: 'rgba(255,255,255,0.9)',
+          backdropFilter: 'blur(8px)',
+          border: '1px solid rgba(0,0,0,0.05)',
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center'
+        }}>
+          <Box sx={{ 
+            width: '120px', 
+            height: '120px', 
+            mb: 2,
+            filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.1))'
+          }}>
+            <Player
+              autoplay
+              loop
+              src={scheduleAnimation}
+              style={{ width: '100%', height: '100%' }}
+            />
+          </Box>
+          
+          <Typography variant="h5" sx={{ 
+            fontWeight: 'bold', 
+            color: '#1A2137', 
+            mb: 1.5,
+            position: 'relative',
+            display: 'inline-block',
+            '&:after': {
+              content: '""',
+              position: 'absolute',
+              bottom: -6,
+              left: '25%',
+              width: '50%',
+              height: 3,
+              backgroundColor: '#FFD700',
+              borderRadius: 2
+            }
+          }}>
+            No meetings scheduled
+          </Typography>
+          
+          <Typography variant="body1" sx={{ color: '#555', maxWidth: '90%', mx: 'auto', mb: 2 }}>
+            There are no upcoming meetings scheduled for you at this time. Meetings will appear here once they are assigned to your department.
+          </Typography>
+          
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleRefreshMeetings}
+            startIcon={<RefreshIcon />}
+            sx={{ 
+              px: 3, 
+              py: 1,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 'medium',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
+              background: 'linear-gradient(45deg, #1A2137 30%, #2A3147 90%)',
+              '&:hover': {
+                boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
+              }
+            }}
+          >
+            Refresh Meetings
+          </Button>
+          
+          <Box sx={{ display: 'flex', alignItems: 'center', mt: 2, color: '#666' }}>
+            <InfoIcon fontSize="small" sx={{ mr: 1 }} />
+            <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+              Check back later or contact the Academic Director for more information
+            </Typography>
+          </Box>
+        </Card>
       </Paper>
     );
   }
@@ -185,14 +266,14 @@ const MeetingScheduleSection = ({
       position: 'relative',
       overflow: 'hidden'
     }}>
-      {/* Animated background */}
+      {/* Animated background - make it more visible */}
       <Box sx={{ 
         position: 'absolute', 
         top: -20, 
         right: -20, 
-        width: '150px', 
-        height: '150px', 
-        opacity: 0.1,
+        width: '180px', 
+        height: '180px', 
+        opacity: 0.15,  // Increased opacity
         zIndex: 0,
         transform: 'rotate(10deg)'
       }}>
@@ -201,18 +282,12 @@ const MeetingScheduleSection = ({
           loop
           src={scheduleAnimation}
           style={{ width: '100%', height: '100%' }}
+          rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
         />
       </Box>
       
-      {/* Header with title */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        mb: 3,
-        position: 'relative',
-        zIndex: 1
-      }}>
+      {/* Header with underline */}
+      <Box sx={{ position: 'relative', mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h5" sx={{ 
           fontWeight: 'bold', 
           color: '#1A2137',
@@ -220,12 +295,12 @@ const MeetingScheduleSection = ({
           '&:after': {
             content: '""',
             position: 'absolute',
-            bottom: -10,
+            bottom: -8,
             left: 0,
-            width: 60,
-            height: 4,
+            width: 40,
+            height: 3,
             backgroundColor: '#FFD700',
-            borderRadius: 2
+            borderRadius: 1.5
           }
         }}>
           Meeting Schedule
@@ -233,303 +308,162 @@ const MeetingScheduleSection = ({
         
         <Button
           variant="outlined"
+          color="primary"
           size="small"
-          startIcon={<RefreshIcon />}
           onClick={handleRefreshMeetings}
-          sx={{ 
+          startIcon={<RefreshIcon />}
+          sx={{
             borderRadius: 2,
             textTransform: 'none',
-            borderColor: '#1A2137',
-            color: '#1A2137',
-            '&:hover': {
-              borderColor: '#1A2137',
-              backgroundColor: 'rgba(26, 33, 55, 0.04)'
-            }
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
           }}
         >
           Refresh
         </Button>
       </Box>
       
-      {/* Today's meetings section */}
-      {meetings.currentMeetings && meetings.currentMeetings.length > 0 && (
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h6" sx={{ 
-            mb: 2, 
-            color: '#1A2137',
-            display: 'flex',
-            alignItems: 'center',
-            fontSize: '1.1rem',
-            fontWeight: 'bold'
-          }}>
-            <EventIcon sx={{ mr: 1 }} /> Today's Meetings
-          </Typography>
-          
-          <TableContainer component={Card} sx={{ 
-            borderRadius: 2,
-            boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
-            mb: 2
-          }}>
-            <Table sx={{ minWidth: 650 }}>
-              <TableHead>
-                <TableRow sx={{ backgroundColor: 'rgba(26, 33, 55, 0.02)' }}>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Title</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Time</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Department</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {meetings.currentMeetings.map((meeting) => {
-                  // Normalize meeting data
-                  const meetingDate = meeting.meetingDate || meeting.date;
-                  const formattedDate = formatDate(meetingDate);
+      {/* Table of meetings */}
+      <TableContainer 
+        component={Paper} 
+        sx={{ 
+          boxShadow: 'none',
+          backgroundColor: 'transparent',
+          backgroundImage: 'none',
+          mb: 3,
+          '& .MuiTableCell-root': {
+            borderBottom: '1px solid rgba(224, 224, 224, 0.5)'
+          },
+          '& .MuiTableHead-root': {
+            backgroundColor: 'rgba(26, 33, 55, 0.03)'
+          }
+        }}
+      >
+        <Table sx={{ minWidth: 650 }}>
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 'bold', color: '#1A2137' }}>Meeting Title</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', color: '#1A2137' }}>Date</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', color: '#1A2137' }}>Time</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', color: '#1A2137' }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', color: '#1A2137' }}>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {uniqueMeetings.map((meeting) => {
+              // Calculate if meeting is past, ongoing, or upcoming
+              const now = new Date();
+              let meetingDate = meeting.date || meeting.meetingDate;
+              const meetingTime = meeting.startTime || '00:00';
+              
+              // If meetingDate is an ISO string (contains 'T'), extract just the date part
+              if (typeof meetingDate === 'string' && meetingDate.includes('T')) {
+                meetingDate = meetingDate.split('T')[0]; // Extract just the YYYY-MM-DD part
+              }
+              
+              const meetingDateTime = new Date(`${meetingDate}T${meetingTime}`);
+              const endTime = meeting.endTime || '23:59';
+              const meetingEndDateTime = new Date(`${meetingDate}T${endTime}`);
+              
+              let status = 'upcoming';
+              if (now > meetingEndDateTime) {
+                status = 'past';
+              } else if (now >= meetingDateTime && now <= meetingEndDateTime) {
+                status = 'ongoing';
+              }
+              
+              return (
+                <TableRow 
+                  key={meeting.id}
+                  sx={{ 
+                    '&:hover': { 
+                      backgroundColor: 'rgba(0,0,0,0.03)',
+                      transition: 'background-color 0.2s ease'
+                    },
+                  }}
+                >
+                  <TableCell sx={{ 
+                    color: '#333',
+                    fontWeight: status === 'ongoing' ? 'bold' : 'normal'
+                  }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <EventIcon sx={{ 
+                        mr: 1, 
+                        color: status === 'ongoing' ? '#1976d2' : 
+                               status === 'past' ? '#757575' : '#4caf50',
+                        fontSize: '1.2rem'
+                      }} />
+                      {meeting.title || "Scheduled Meeting"}
+                    </Box>
+                  </TableCell>
                   
-                  // Get department name
-                  const departmentName = meeting.department?.name || 
-                    (typeof meeting.department === 'string' ? meeting.department : null) ||
-                    getDepartmentNameById(meeting.departmentId) || 
-                    'Not specified';
+                  <TableCell>{formatDate(meetingDate)}</TableCell>
                   
-                  return (
-                    <TableRow 
-                      key={meeting.id || Math.random().toString(36).substr(2, 9)}
+                  <TableCell>
+                    {formatTimeWithAMPM(meetingTime)}
+                    {meeting.endTime && ` - ${formatTimeWithAMPM(meeting.endTime)}`}
+                  </TableCell>
+                  
+                  <TableCell>
+                    <Chip 
+                      label={
+                        status === 'past' ? 'Completed' : 
+                        status === 'ongoing' ? 'Ongoing' : 'Upcoming'
+                      }
+                      size="small"
                       sx={{ 
-                        '&:hover': { backgroundColor: 'rgba(26, 33, 55, 0.02)' },
-                        transition: 'background-color 0.2s'
+                        backgroundColor: 
+                          status === 'past' ? 'rgba(117, 117, 117, 0.1)' : 
+                          status === 'ongoing' ? 'rgba(25, 118, 210, 0.1)' : 'rgba(76, 175, 80, 0.1)',
+                        color: 
+                          status === 'past' ? '#757575' : 
+                          status === 'ongoing' ? '#1976d2' : '#4caf50',
+                        fontWeight: 'medium',
+                        borderRadius: 1
+                      }}
+                    />
+                  </TableCell>
+                  
+                  <TableCell>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      color="primary"
+                      onClick={() => handleFetchQuestionsByMeeting(meeting.id)}
+                      startIcon={<FeedbackIcon />}
+                      disabled={status === 'upcoming' && (meetingDateTime - now) > 300000} // Disable if more than 5 minutes away
+                      sx={{ 
+                        borderRadius: 1,
+                        textTransform: 'none',
+                        fontSize: '0.8rem',
+                        whiteSpace: 'nowrap',
+                        minWidth: '120px'
                       }}
                     >
-                      <TableCell component="th" scope="row" sx={{ fontWeight: 'medium' }}>
-                        {meeting.title}
-                      </TableCell>
-                      <TableCell>
-                        {meeting.startTime ? (
-                          meeting.endTime ? 
-                            `${formatTimeWithAMPM(meeting.startTime)} - ${formatTimeWithAMPM(meeting.endTime)}` :
-                            formatTimeWithAMPM(meeting.startTime)
-                        ) : 'Time not specified'}
-                      </TableCell>
-                      <TableCell>{departmentName}</TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={meeting.status || 'Today'} 
-                          size="small"
-                          sx={{ 
-                            bgcolor: 
-                              meeting.status === 'completed' ? '#e8f5e9' : 
-                              meeting.status === 'cancelled' ? '#ffebee' : 
-                              meeting.status === 'in-progress' ? '#fff3e0' : '#e3f2fd',
-                            color: 
-                              meeting.status === 'completed' ? '#2e7d32' : 
-                              meeting.status === 'cancelled' ? '#c62828' : 
-                              meeting.status === 'in-progress' ? '#ef6c00' : '#0277bd',
-                            textTransform: 'capitalize',
-                            fontWeight: 'medium'
-                          }} 
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Button 
-                          variant="outlined"
-                          size="small"
-                          color="primary"
-                          onClick={() => handleFetchQuestionsByMeeting(meeting.id)}
-                          startIcon={<FeedbackIcon />}
-                          sx={{ 
-                            borderRadius: 2, 
-                            textTransform: 'none',
-                            borderColor: '#1A2137',
-                            color: '#1A2137',
-                            '&:hover': {
-                              borderColor: '#1A2137',
-                              backgroundColor: 'rgba(26, 33, 55, 0.04)'
-                            }
-                          }}
-                        >
-                          Feedback
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Box>
-      )}
+                      {status === 'past' ? 'View Feedback' : 'Give Feedback'}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
       
-      {/* Upcoming meetings section */}
-      {meetings.futureMeetings && meetings.futureMeetings.length > 0 && (
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h6" sx={{ 
-            mb: 2, 
-            color: '#1A2137',
-            display: 'flex',
-            alignItems: 'center',
-            fontSize: '1.1rem',
-            fontWeight: 'bold'
-          }}>
-            <EventIcon sx={{ mr: 1 }} /> Upcoming Meetings
-          </Typography>
-          
-          <TableContainer component={Card} sx={{ 
-            borderRadius: 2,
-            boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
-            mb: 2
-          }}>
-            <Table sx={{ minWidth: 650 }}>
-              <TableHead>
-                <TableRow sx={{ backgroundColor: 'rgba(26, 33, 55, 0.02)' }}>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Title</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Time</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Department</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {meetings.futureMeetings.map((meeting) => {
-                  // Normalize meeting data
-                  const meetingDate = meeting.meetingDate || meeting.date;
-                  const formattedDate = formatDate(meetingDate);
-                  
-                  // Get department name
-                  const departmentName = meeting.department?.name || 
-                    (typeof meeting.department === 'string' ? meeting.department : null) ||
-                    getDepartmentNameById(meeting.departmentId) || 
-                    'Not specified';
-                  
-                  return (
-                    <TableRow 
-                      key={meeting.id || Math.random().toString(36).substr(2, 9)}
-                      sx={{ 
-                        '&:hover': { backgroundColor: 'rgba(26, 33, 55, 0.02)' },
-                        transition: 'background-color 0.2s'
-                      }}
-                    >
-                      <TableCell component="th" scope="row" sx={{ fontWeight: 'medium' }}>
-                        {meeting.title}
-                      </TableCell>
-                      <TableCell>{formattedDate}</TableCell>
-                      <TableCell>
-                        {meeting.startTime ? (
-                          meeting.endTime ? 
-                            `${formatTimeWithAMPM(meeting.startTime)} - ${formatTimeWithAMPM(meeting.endTime)}` :
-                            formatTimeWithAMPM(meeting.startTime)
-                        ) : 'Time not specified'}
-                      </TableCell>
-                      <TableCell>{departmentName}</TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={meeting.status || 'Scheduled'} 
-                          size="small"
-                          sx={{ 
-                            bgcolor: '#e3f2fd',
-                            color: '#0277bd',
-                            textTransform: 'capitalize',
-                            fontWeight: 'medium'
-                          }} 
-                        />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Box>
-      )}
-      
-      {/* Past meetings section */}
-      {meetings.pastMeetings && meetings.pastMeetings.length > 0 && (
-        <Box>
-          <Typography variant="h6" sx={{ 
-            mb: 2, 
-            color: '#1A2137',
-            display: 'flex',
-            alignItems: 'center',
-            fontSize: '1.1rem',
-            fontWeight: 'bold'
-          }}>
-            <EventIcon sx={{ mr: 1 }} /> Past Meetings
-          </Typography>
-          
-          <TableContainer component={Card} sx={{ 
-            borderRadius: 2,
-            boxShadow: '0 4px 15px rgba(0,0,0,0.05)'
-          }}>
-            <Table sx={{ minWidth: 650 }}>
-              <TableHead>
-                <TableRow sx={{ backgroundColor: 'rgba(26, 33, 55, 0.02)' }}>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Title</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Time</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Department</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {meetings.pastMeetings.map((meeting) => {
-                  // Normalize meeting data
-                  const meetingDate = meeting.meetingDate || meeting.date;
-                  const formattedDate = formatDate(meetingDate);
-                  
-                  // Get department name
-                  const departmentName = meeting.department?.name || 
-                    (typeof meeting.department === 'string' ? meeting.department : null) ||
-                    getDepartmentNameById(meeting.departmentId) || 
-                    'Not specified';
-                  
-                  return (
-                    <TableRow 
-                      key={meeting.id || Math.random().toString(36).substr(2, 9)}
-                      sx={{ 
-                        '&:hover': { backgroundColor: 'rgba(26, 33, 55, 0.02)' },
-                        transition: 'background-color 0.2s'
-                      }}
-                    >
-                      <TableCell component="th" scope="row" sx={{ fontWeight: 'medium' }}>
-                        {meeting.title}
-                      </TableCell>
-                      <TableCell>{formattedDate}</TableCell>
-                      <TableCell>
-                        {meeting.startTime ? (
-                          meeting.endTime ? 
-                            `${formatTimeWithAMPM(meeting.startTime)} - ${formatTimeWithAMPM(meeting.endTime)}` :
-                            formatTimeWithAMPM(meeting.startTime)
-                        ) : 'Time not specified'}
-                      </TableCell>
-                      <TableCell>{departmentName}</TableCell>
-                      <TableCell>
-                        <Button 
-                          variant="outlined"
-                          size="small"
-                          color="primary"
-                          onClick={() => handleFetchQuestionsByMeeting(meeting.id)}
-                          startIcon={<FeedbackIcon />}
-                          sx={{ 
-                            borderRadius: 2, 
-                            textTransform: 'none',
-                            borderColor: '#1A2137',
-                            color: '#1A2137',
-                            '&:hover': {
-                              borderColor: '#1A2137',
-                              backgroundColor: 'rgba(26, 33, 55, 0.04)'
-                            }
-                          }}
-                        >
-                          View Feedback
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Box>
-      )}
+      {/* Tip section */}
+      <Card sx={{ 
+        p: 2, 
+        borderRadius: 2, 
+        bgcolor: 'rgba(255, 215, 0, 0.05)', 
+        border: '1px dashed rgba(255, 215, 0, 0.3)',
+        display: 'flex',
+        alignItems: 'center',
+        my: 2
+      }}>
+        <InfoIcon sx={{ color: '#FFD700', mr: 2 }} />
+        <Typography variant="body2" sx={{ color: '#666' }}>
+          Feedback for upcoming meetings will be available 5 minutes before the scheduled start time.
+        </Typography>
+      </Card>
     </Paper>
   );
 };

@@ -13,6 +13,13 @@ router.post(
 // Get all questions
 router.get('/', [authJwt.verifyToken], questionController.getAllQuestions);
 
+// Get latest questions for the current user
+router.get(
+  '/latest',
+  [authJwt.verifyToken],
+  questionController.getLatestQuestions
+);
+
 // Get questions by department (with optional role query parameter)
 router.get(
   '/department/:departmentId',

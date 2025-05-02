@@ -5,7 +5,7 @@ import FeedbackIcon from '@mui/icons-material/Feedback';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import LogoutIcon from '@mui/icons-material/Logout';
 
-const Sidebar = ({ activeSection, setActiveSection, handleLogout }) => (
+const Sidebar = ({ activeSection, setActiveSection, onLogout }) => (
   <Box 
     sx={{
       width: 240,
@@ -59,11 +59,11 @@ const Sidebar = ({ activeSection, setActiveSection, handleLogout }) => (
       
       <ListItem 
         button 
-        onClick={() => setActiveSection('meeting-schedule')}
+        onClick={() => setActiveSection('meetings')}
         sx={{ 
           py: 2, 
           pl: 3,
-          bgcolor: activeSection === 'meeting-schedule' ? '#2A3147' : 'transparent',
+          bgcolor: activeSection === 'meetings' ? '#2A3147' : 'transparent',
           '&:hover': { bgcolor: '#2A3147' }
         }}
       >
@@ -77,7 +77,7 @@ const Sidebar = ({ activeSection, setActiveSection, handleLogout }) => (
     <Box sx={{ position: 'absolute', bottom: 0, width: '100%' }}>
       <ListItem 
         button 
-        onClick={handleLogout}
+        onClick={onLogout}
         sx={{ 
           py: 2, 
           pl: 3,

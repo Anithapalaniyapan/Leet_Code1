@@ -396,10 +396,42 @@ const FeedbackSection = ({
               </Typography>
             )}
           </>
+        ) : questionsError ? (
+          <Box sx={{ maxWidth: '500px' }}>
+            <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#d32f2f', mb: 2 }}>
+              {questionsError}
+            </Typography>
+            <Typography variant="body1" sx={{ color: '#555', mb: 3 }}>
+              Please try again later or select a meeting from the "View Meetings" tab.
+            </Typography>
+            <Alert severity="info" sx={{ textAlign: 'left', mb: 2 }}>
+              Questions will automatically appear here 5 minutes before your scheduled meetings.
+            </Alert>
+          </Box>
         ) : (
-          <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#1A2137' }}>
-            No feedback questions available for your year and department
-          </Typography>
+          <Box sx={{ maxWidth: '500px' }}>
+            <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#1A2137', mb: 2 }}>
+              No feedback questions available yet
+            </Typography>
+            <Typography variant="body1" sx={{ color: '#555', mb: 3 }}>
+              Questions will appear here automatically when:
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3, width: '100%' }}>
+              <Alert severity="info" sx={{ textAlign: 'left' }}>
+                <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                  • You have an upcoming meeting starting within 5 minutes
+                </Typography>
+              </Alert>
+              <Alert severity="info" sx={{ textAlign: 'left' }}>
+                <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                  • The Academic Director has posted questions for your year/department
+                </Typography>
+              </Alert>
+            </Box>
+            <Typography variant="body2" sx={{ color: '#666', fontStyle: 'italic' }}>
+              You can also check your scheduled meetings in the "View Meetings" tab
+            </Typography>
+          </Box>
         )}
       </Paper>
     );
@@ -420,9 +452,9 @@ const FeedbackSection = ({
         position: 'absolute', 
         right: 20, 
         top: 20, 
-        width: '120px', 
-        height: '120px', 
-        opacity: 0.1,
+        width: '180px',
+        height: '180px',
+        opacity: 0.2,
         zIndex: 0
       }}>
         <Player
@@ -535,7 +567,7 @@ const FeedbackSection = ({
         </Box>
       </Box>
       
-      {/* Countdown Modal - Enhanced with glass effect */}
+      {/* Countdown Modal - Clean design with just the number */}
       <Modal
         open={showCountdown}
         closeAfterTransition
@@ -547,56 +579,36 @@ const FeedbackSection = ({
         sx={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          margin: 'auto'
+          justifyContent: 'center'
         }}
       >
         <Fade in={showCountdown}>
           <Box sx={{ 
-            position: 'relative',
-            bgcolor: 'rgba(255, 255, 255, 0.8)', 
-            backdropFilter: 'blur(10px)',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
-            border: '1px solid rgba(255, 255, 255, 0.3)',
-            borderRadius: 4,
-            p: 5,
-            outline: 'none',
-            textAlign: 'center',
-            width: 300,
-            height: 300,
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '100%',
+            height: '100%',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            margin: 'auto',
-            left: '50%',
-            top: '50%',
-            transform: 'translate(-50%, -50%)'
+            background: 'transparent',
+            outline: 'none',
+            zIndex: 1000
           }}>
             <Typography variant="h1" sx={{ 
               fontWeight: 'bold', 
               color: '#1A2137', 
-              mb: 2,
-              fontSize: '6rem',
-              textShadow: '0 0 15px rgba(255, 215, 0, 0.3)'
+              textAlign: 'center',
+              fontSize: { xs: '16rem', sm: '20rem' },
+              lineHeight: 1,
+              mb: 0,
+              opacity: 0.9
             }}>
               {countdown}
             </Typography>
-            <Typography variant="h6" sx={{ 
-              mb: 3, 
-              color: '#666',
-              fontWeight: 'medium'
-            }}>
-              Processing your feedback...
-            </Typography>
-            <Box sx={{ width: 120, height: 120, margin: 'auto' }}>
-              <Player
-                autoplay
-                loop={false}
-                src={countdownAnimation}
-                style={{ width: '100%', height: '100%' }}
-              />
-            </Box>
           </Box>
         </Fade>
       </Modal>

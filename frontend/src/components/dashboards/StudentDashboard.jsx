@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import API from '../../api/axiosConfig';
 import { useNavigate } from 'react-router-dom';
-import { Box, Snackbar, Alert } from '@mui/material';
+import { Box, Snackbar, Alert, CircularProgress, Fade, Typography } from '@mui/material';
 
 // Import our new components
 import Sidebar from '../student-dashboard/Sidebar';
@@ -859,67 +859,160 @@ const StudentDashboard = () => {
 
   return (
     <Box sx={{ display: 'flex' }}>
-      {/* Sidebar Component */}
-      <Sidebar 
-        activeSection={activeSection} 
-        setActiveSection={setActiveSection} 
-        handleLogout={handleLogout} 
+      <Sidebar
+        activeSection={activeSection}
+        setActiveSection={setActiveSection}
+        onLogout={handleLogout}
       />
-      
-      {/* Main content */}
       <Box 
         component="main" 
         sx={{ 
           flexGrow: 1, 
-          p: 0, 
+          p: 3, 
+          ml: { sm: '240px' },
           bgcolor: '#f5f5f7',
-          ml: '240px',
           minHeight: '100vh',
-          display: 'flex',
-          justifyContent: 'center'
+          position: 'relative'
         }}
       >
-        <Box sx={{ width: '1010px', mt: 2, mb: 2 }}>
-          {activeSection === 'profile' && (
-            <ProfileSection userProfile={userProfile} loading={loading} />
-          )}
-          
-          {activeSection === 'feedback' && (
-            <FeedbackSection 
-              questions={questions}
-              ratings={ratings}
-              handleRatingChange={handleRatingChange}
-              handleSubmitFeedback={handleSubmitFeedback}
-              loading={loading}
-              questionsLoading={questionsLoading}
-              questionsError={questionsError}
-              activeMeeting={activeMeeting}
-              feedbackSubmitted={feedbackSubmitted}
-              setFeedbackSubmitted={setFeedbackSubmitted}
-              shouldShowQuestions={shouldShowQuestions}
-            />
-          )}
-          
-          {activeSection === 'meeting-schedule' && (
-            <MeetingScheduleSection 
-              meetings={meetings}
-              loading={loading}
-              handleFetchQuestionsByMeeting={handleFetchQuestionsByMeeting}
-            />
-          )}
-        </Box>
-      </Box>
+        {/* Loading overlay - similar to Academic Director's dashboard */}
+        {(loading || questionsLoading) && !userProfile.name && (
+          <Fade in={true}>
+            <Box sx={{ 
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+              backgroundColor: 'rgba(25, 118, 210, 0.05)',
+              backdropFilter: 'blur(5px)'
+            }}>
+              <Box sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative'
+              }}>
+                <Box sx={{
+                  width: '80px',
+                  height: '80px',
+                  position: 'relative',
+                  animation: 'rotate 3s linear infinite',
+                  '@keyframes rotate': {
+                    '0%': {
+                      transform: 'rotate(0deg)'
+                    },
+                    '100%': {
+                      transform: 'rotate(360deg)'
+                    }
+                  }
+                }}>
+                  <Box sx={{
+                    position: 'absolute',
+                    width: '100%',
+                    height: '100%',
+                    border: '3px solid transparent',
+                    borderRadius: '50%',
+                    borderTopColor: '#3f51b5',
+                    borderBottomColor: '#f50057',
+                    borderLeftColor: '#00acc1',
+                    borderRightColor: '#ff9800',
+                    filter: 'drop-shadow(0 0 8px rgba(63, 81, 181, 0.5))'
+                  }} />
+                  <Box sx={{
+                    position: 'absolute',
+                    top: '10px',
+                    left: '10px',
+                    right: '10px',
+                    bottom: '10px',
+                    border: '3px solid transparent',
+                    borderRadius: '50%',
+                    borderTopColor: '#00acc1',
+                    borderBottomColor: '#3f51b5',
+                    borderLeftColor: '#ff9800',
+                    borderRightColor: '#f50057',
+                    animation: 'rotate 1.5s linear infinite reverse',
+                  }} />
+                </Box>
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+                <Box sx={{
+                  mt: 4,
+                  textAlign: 'center',
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+                  border: '1px solid rgba(0, 0, 0, 0.05)'
+                }}>
+                  <Typography 
+                    variant="h6" 
+                    sx={{ 
+                      fontWeight: 600, 
+                      background: 'linear-gradient(45deg, #3f51b5 30%, #00acc1 90%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      mb: 1
+                    }}
+                  >
+                    Student Dashboard
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    Loading your dashboard...
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          </Fade>
+        )}
+
+        {/* Main Content */}
+        {activeSection === 'profile' && (
+          <ProfileSection 
+            userProfile={userProfile} 
+            loading={loading}
+          />
+        )}
+        
+        {activeSection === 'feedback' && (
+          <FeedbackSection 
+            questions={questions}
+            handleRatingChange={handleRatingChange}
+            handleSubmitFeedback={handleSubmitFeedback}
+            ratings={ratings}
+            loading={loading}
+            questionsLoading={questionsLoading}
+            questionsError={questionsError}
+            activeMeeting={activeMeeting}
+            shouldShowQuestions={shouldShowQuestions}
+            feedbackSubmitted={feedbackSubmitted}
+          />
+        )}
+        
+        {activeSection === 'meetings' && (
+          <MeetingScheduleSection 
+            meetings={meetings}
+            loading={loading}
+            error={error}
+            handleFetchQuestionsByMeeting={handleFetchQuestionsByMeeting}
+          />
+        )}
+        
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+        >
+          <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </Box>
     </Box>
   );
 };

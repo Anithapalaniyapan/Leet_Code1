@@ -5,7 +5,7 @@ import FeedbackIcon from '@mui/icons-material/Feedback';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import LogoutIcon from '@mui/icons-material/Logout';
 
-const Sidebar = ({ activeSection, handleSectionChange, handleLogout }) => {
+const Sidebar = ({ activeSection, onSectionChange, onLogout }) => {
   // Define tabs for the sidebar
   const tabs = [
     { id: 0, label: "Profile", icon: <PersonIcon />, section: 'profile' },
@@ -41,7 +41,7 @@ const Sidebar = ({ activeSection, handleSectionChange, handleLogout }) => {
           <ListItem 
             key={tab.id}
             button 
-            onClick={() => handleSectionChange(tab.section)}
+            onClick={() => onSectionChange(tab.section)}
             sx={{ 
               py: 2, 
               pl: 3,
@@ -75,7 +75,7 @@ const Sidebar = ({ activeSection, handleSectionChange, handleLogout }) => {
       <List sx={{ p: 0 }}>
         <ListItem 
           button 
-          onClick={handleLogout}
+          onClick={onLogout}
           sx={{ 
             py: 2, 
             pl: 3,

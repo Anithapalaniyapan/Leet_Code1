@@ -26,7 +26,8 @@ import {
   TableRow,
   TableCell,
   Chip,
-  CircularProgress
+  CircularProgress,
+  Fade
 } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import FeedbackIcon from '@mui/icons-material/Feedback';
@@ -40,6 +41,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import QuestionAnswerIcon from '@mui/icons-material/QuestionAnswer';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import API from '../../api/axiosConfig';
 import axios from 'axios';
 
@@ -123,13 +125,21 @@ const StaffDashboard = () => {
   const [shouldShowQuestions, setShouldShowQuestions] = useState(false);
   const [nextMeetingTimer, setNextMeetingTimer] = useState(null);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  // New state for persistent feedback submission alert
+  const [feedbackAlert, setFeedbackAlert] = useState({
+    open: false,
+    message: 'Feedback submitted successfully'
+  });
 
   // Ref for the polling interval
   const pollingIntervalRef = useRef(null);
 
-  // Set initial active section
+  // Set initial active section and load data
   useEffect(() => {
     dispatch(setActiveSection('profile'));
+    
+    // Fetch user profile directly as soon as the component mounts
+    fetchUserProfileDirectly();
   }, [dispatch]);
 
   // Check authentication and role on component mount
@@ -154,26 +164,29 @@ const StaffDashboard = () => {
         
         // Normalize and check role
         const normalizedRole = response.data.roles?.[0]?.name?.toLowerCase() || '';
-      const isStaffRole = 
-        normalizedRole === 'staff' || 
-        normalizedRole === 'faculty' || 
-        normalizedRole === 'teacher' ||
-        normalizedRole.includes('staff');
+        const isStaffRole = 
+          normalizedRole === 'staff' || 
+          normalizedRole === 'faculty' || 
+          normalizedRole === 'teacher' ||
+          normalizedRole.includes('staff');
       
-      if (!isStaffRole) {
+        if (!isStaffRole) {
           console.log(`Invalid role for staff dashboard: ${normalizedRole}`);
-        dispatch(showSnackbar({
-          message: 'You do not have permission to access this dashboard',
-          severity: 'error'
-        }));
-        navigate('/login');
-        return;
-      }
+          dispatch(showSnackbar({
+            message: 'You do not have permission to access this dashboard',
+            severity: 'error'
+          }));
+          navigate('/login');
+          return;
+        }
       
-      console.log('Authentication successful for Staff Dashboard');
+        console.log('Authentication successful for Staff Dashboard');
       
         // Store role in localStorage
         localStorage.setItem('userRole', 'staff');
+        
+        // Fetch profile data directly
+        await fetchUserProfileDirectly();
         
         // Fetch meetings
         await fetchMeetingsDirectly();
@@ -191,65 +204,95 @@ const StaffDashboard = () => {
 
   // Direct API call as fallback for profile loading
   const fetchUserProfileDirectly = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        console.log('Token found:', token ? 'Yes' : 'No');
-        
-        if (!token) {
+    try {
+      const token = localStorage.getItem('token');
+      console.log('Token found:', token ? 'Yes' : 'No');
+      
+      if (!token) {
         console.error('No token found for direct profile fetch');
-          return;
-        }
-        
+        // Don't proceed without a token
+        navigate('/login');
+        return;
+      }
+      
       console.log('Attempting direct API call to fetch staff profile');
       
       // First try to get user data from login response stored in localStorage
-      const userData = localStorage.getItem('userData');
+      let userData = localStorage.getItem('userData');
+      let parsedUserData = null;
+      
       if (userData) {
         try {
-          const parsedUserData = JSON.parse(userData);
+          parsedUserData = JSON.parse(userData);
           console.log('Found stored user data:', parsedUserData);
           
-          // Update the Redux store with this data
-          dispatch({
-            type: 'user/setUserProfile',
-            payload: parsedUserData
-          });
-          
-          return; // If we successfully loaded from localStorage, don't make API call
+          // If the stored data is empty or missing critical fields, don't use it
+          if (!parsedUserData || !parsedUserData.id || !parsedUserData.email) {
+            console.log('Stored user data is incomplete, will fetch from API');
+            parsedUserData = null;
+          }
         } catch (e) {
           console.error('Error parsing stored user data:', e);
+          // Clear the invalid data
+          localStorage.removeItem('userData');
         }
       }
       
-      // Call the API directly using the global API instance
-      const response = await API.get('/users/profile');
-      
-      console.log('Profile API response received:', response.data);
-      
-      if (response.data && Object.keys(response.data).length > 0) {
-        // Update Redux store with the profile data
-        dispatch({
-          type: 'user/setUserProfile',
-          payload: response.data
-        });
+      // If we don't have valid stored data, fetch from API
+      if (!parsedUserData) {
+        // Call the API directly using axios
+        console.log('Making API call to /users/profile');
+        const response = await axios.get('/users/profile');
         
-        // Store the data in localStorage for future use
-        localStorage.setItem('userData', JSON.stringify(response.data));
+        console.log('Profile API response received:', response.data);
+        
+        if (response.data && Object.keys(response.data).length > 0) {
+          parsedUserData = response.data;
+          
+          // Store the data in localStorage for future use
+          localStorage.setItem('userData', JSON.stringify(parsedUserData));
+          console.log('Updated userData in localStorage');
+        } else {
+          throw new Error('Empty or invalid profile data received from API');
+        }
       }
+      
+      // Update Redux store with the profile data
+      dispatch({
+        type: 'user/setUserProfile',
+        payload: parsedUserData
+      });
+      
     } catch (error) {
       console.error('Error in direct profile fetch:', error);
       console.error('Error response:', error.response?.data);
       
-      // Set a default profile in case of error
-      dispatch({
-        type: 'user/setUserProfile',
-        payload: {
-          name: 'Staff Member',
-          staffId: 'SF123456',
-          department: { name: 'Engineering' },
-          position: 'Lecturer',
-          email: 'staff@university.edu'
+      // Try one more time with a different endpoint if the first one failed
+      try {
+        console.log('Attempting alternative API endpoint for profile');
+        const alternativeResponse = await axios.get('/users/me');
+        
+        if (alternativeResponse.data && Object.keys(alternativeResponse.data).length > 0) {
+          // Update Redux store with the profile data
+          dispatch({
+            type: 'user/setUserProfile',
+            payload: alternativeResponse.data
+          });
+          
+          // Store the data in localStorage for future use
+          localStorage.setItem('userData', JSON.stringify(alternativeResponse.data));
+          console.log('Saved profile data from alternative endpoint');
+          return;
         }
+      } catch (altError) {
+        console.error('Alternative profile endpoint also failed:', altError);
+      }
+      
+      // If we still don't have profile data, show an error notification
+      setSnackbar({
+        open: true,
+        message: 'Unable to load your profile. Please try refreshing the page.',
+        severity: 'error'
       });
     }
   };
@@ -257,10 +300,14 @@ const StaffDashboard = () => {
   // Effect to show success/error messages for feedback submission
   useEffect(() => {
     if (submitSuccess) {
-      dispatch(showSnackbar({
-        message: 'Feedback submitted successfully',
-        severity: 'success'
-      }));
+      // Show persistent alert instead of temporary snackbar
+      setFeedbackAlert({
+        open: true,
+        message: 'Feedback submitted successfully'
+      });
+      
+      // Also set feedbackSubmitted to true when Redux state indicates success
+      setFeedbackSubmitted(true);
     } else if (feedbackError) {
       dispatch(showSnackbar({
         message: feedbackError,
@@ -271,160 +318,124 @@ const StaffDashboard = () => {
 
   // Update fetchQuestions function
   const fetchQuestions = async (meetingId = null) => {
-      setQuestionsLoading(true);
-    setQuestionsError('');
-    setFeedbackSubmitted(false);
-      
     try {
-      const token = localStorage.getItem('token');
+      setQuestionsLoading(true);
+      setQuestionsError(null);
+      
+      console.log('Fetching questions for meeting:', meetingId);
+      
+      // Try getting token from multiple sources to ensure we have one
+      let token = localStorage.getItem('token');
+      
+      // Backup tokens (in case primary token is invalid)
+      const backupToken = sessionStorage.getItem('token') || 
+                         localStorage.getItem('refreshToken') || 
+                         token;
+      
       if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      let endpoint = '';
-      
-      // If meetingId is provided, use the meeting-specific endpoint
-      if (meetingId) {
-        endpoint = `http://localhost:8080/api/questions/meeting/${meetingId}`;
-        
-        // Also set this as the active meeting for feedback submission
-        const meeting = meetings.find(m => m.id === meetingId);
-        if (meeting) {
-          setActiveMeeting(meeting);
-          console.log('Set active meeting for feedback:', meeting);
-          
-          // Check if we're within 5 minutes of the meeting time
-          const now = new Date();
-          
-          // Handle different date formats
-          let meetingDate = meeting.date || meeting.meetingDate;
-          const meetingTime = meeting.startTime || '00:00';
-          
-          // If date is an ISO string (contains 'T'), extract just the date part
-          if (typeof meetingDate === 'string' && meetingDate.includes('T')) {
-            meetingDate = meetingDate.split('T')[0]; // Extract just the YYYY-MM-DD part
-          }
-          
-          const meetingDateTime = new Date(`${meetingDate}T${meetingTime}`);
-          
-          if (!isNaN(meetingDateTime.getTime())) {
-            const diffMs = meetingDateTime.getTime() - now.getTime();
-            const diffMins = Math.floor(diffMs / 60000);
-            
-            // If meeting is more than 5 minutes away, we shouldn't show questions yet
-            if (diffMins > 5) {
-              console.log(`Meeting is ${diffMins} minutes away, questions will be available in ${diffMins - 5} minutes`);
-              setShouldShowQuestions(false);
-              setQuestionsLoading(false);
-              return;
-      } else {
-              // Show questions if less than 5 minutes to meeting or if meeting has started but within 60 minutes
-              if (diffMins >= -60) {
-                console.log(`Meeting is ${diffMins <= 0 ? 'ongoing or past' : diffMins + ' minutes away'}, showing questions now`);
-                setShouldShowQuestions(true);
-              } else {
-                console.log(`Meeting has passed by more than 60 minutes, not showing questions`);
-                setShouldShowQuestions(false);
-                setQuestionsLoading(false);
-                return;
-              }
-            }
-          } else {
-            console.error('Invalid meeting date/time format:', meetingDate, meetingTime);
-          }
-        }
-      } else {
-        // If no meeting ID, only fetch if we have an active meeting and within 5 minutes
-        if (activeMeeting) {
-          const now = new Date();
-          
-          // Handle different date formats
-          let meetingDate = activeMeeting.date || activeMeeting.meetingDate;
-          const meetingTime = activeMeeting.startTime || '00:00';
-          
-          // If date is an ISO string (contains 'T'), extract just the date part
-          if (typeof meetingDate === 'string' && meetingDate.includes('T')) {
-            meetingDate = meetingDate.split('T')[0]; // Extract just the YYYY-MM-DD part
-          }
-          
-          const meetingDateTime = new Date(`${meetingDate}T${meetingTime}`);
-          
-          if (!isNaN(meetingDateTime.getTime())) {
-            const diffMs = meetingDateTime.getTime() - now.getTime();
-            const diffMins = Math.floor(diffMs / 60000);
-            
-            if (diffMins > 5) {
-              console.log(`Meeting is ${diffMins} minutes away, questions will be available in ${diffMins - 5} minutes`);
-              setShouldShowQuestions(false);
-              setQuestionsLoading(false);
-              return;
-            }
-            
-            // Use meeting-specific endpoint with active meeting ID
-            endpoint = `http://localhost:8080/api/questions/meeting/${activeMeeting.id}`;
-            setShouldShowQuestions(true);
-          } else {
-            console.error('Invalid meeting date/time format for active meeting:', meetingDate, meetingTime);
-          }
+        if (backupToken) {
+          token = backupToken;
+          console.log('Using backup token source');
+          // Store this token for future use
+          localStorage.setItem('token', token);
         } else {
-          // No meeting ID and no active meeting, use regular endpoint
-          endpoint = 'http://localhost:8080/api/questions';
-          // Clear active meeting when fetching all questions
-        setActiveMeeting(null);
+          throw new Error('No authentication token found');
         }
       }
       
-      const response = await axios.get(endpoint, {
+      // Track if this specific API call has already been completed
+      let isCallCompleted = false;
+      
+      // Add a safety timeout to abort if API never returns
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          if (!isCallCompleted) {
+            reject(new Error('Questions fetch timed out after 15 seconds'));
+          }
+        }, 15000);
+      });
+      
+      // Determine the correct endpoint URL based on whether we have a meetingId
+      let endpointUrl;
+      if (meetingId) {
+        endpointUrl = `http://localhost:8080/api/questions/meeting/${meetingId}?role=staff`;
+      } else {
+        // Use the department-based endpoint as fallback if no meeting is specified
+        // Get user data to extract department
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        const departmentId = userData.departmentId || 
+                            (userData.department?.id) || 
+                            (typeof userData.department === 'number' ? userData.department : null);
+                            
+        if (departmentId) {
+          endpointUrl = `http://localhost:8080/api/questions/department/${departmentId}?role=staff`;
+        } else {
+          // Last resort - try the general questions endpoint
+          endpointUrl = `http://localhost:8080/api/questions?role=staff`;
+        }
+      }
+      
+      console.log('Using questions endpoint:', endpointUrl);
+      
+      // Do the actual fetch
+      const fetchPromise = axios.get(endpointUrl, {
         headers: {
-          'x-access-token': token
+          'x-access-token': token,
+          'Content-Type': 'application/json'
         }
       });
-
+      
+      // Race between fetch and timeout
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
+      
+      isCallCompleted = true;
+      
+      console.log('Questions API response:', response.data);
+      
+      // Extract questions from the response based on the structure
+      let questionsList = [];
+      
       if (response.data) {
-        console.log('Questions data:', response.data);
-        
-        // Set questions and initialize ratings
-        const questionsData = Array.isArray(response.data) ? response.data : [];
-        setLocalQuestions(questionsData);
-        
-        // Initialize ratings for each question
-        const initialRatings = {};
-        questionsData.forEach(question => {
-          initialRatings[question.id] = 0;
-        });
-        setLocalRatings(initialRatings);
-        
-        // Check if feedback was already submitted for this meeting
-        if ((meetingId || activeMeeting) && questionsData.length > 0) {
-          const currentMeetingId = meetingId || activeMeeting.id;
-          try {
-            // Use the new endpoint that combines meeting ID and current user
-            const feedbackResponse = await axios.get(`http://localhost:8080/api/feedback/meeting/${currentMeetingId}/user`, {
-              headers: {
-                'x-access-token': token
-              }
-            });
-
-            if (feedbackResponse.data && Array.isArray(feedbackResponse.data) && feedbackResponse.data.length > 0) {
-              console.log('Found existing feedback for this meeting/user:', feedbackResponse.data);
-              setFeedbackSubmitted(true);
-              setShouldShowQuestions(false);
-            }
-          } catch (error) {
-            // 404 error is expected if no feedback exists yet
-            if (error.response && error.response.status === 404) {
-              console.log('No feedback found for this meeting/user, can submit new feedback');
-              // This is normal, user hasn't submitted feedback yet
-              setFeedbackSubmitted(false);
-            } else {
-              console.error('Error checking for existing feedback:', error);
-            }
+        if (Array.isArray(response.data)) {
+          questionsList = response.data;
+        } else if (response.data.questions && Array.isArray(response.data.questions)) {
+          questionsList = response.data.questions;
+        } else if (typeof response.data === 'object') {
+          // Try to extract questions in case they're nested under a different key
+          const possibleQuestionsArray = Object.values(response.data).find(val => Array.isArray(val));
+          if (possibleQuestionsArray && possibleQuestionsArray.length > 0) {
+            questionsList = possibleQuestionsArray;
           }
         }
       }
+      
+      // Check if we found any questions
+      if (questionsList.length > 0) {
+        console.log(`Successfully retrieved ${questionsList.length} questions`);
+        
+        // Initialize local ratings for each question
+        const initialRatings = {};
+        questionsList.forEach(question => {
+          initialRatings[question.id] = 0;
+        });
+        
+        setLocalRatings(initialRatings);
+        setLocalQuestions(questionsList);
+        return questionsList;
+      } else {
+        // Set a specific error for no questions found
+        setQuestionsError('No questions found for this meeting or department');
+        return [];
+      }
     } catch (error) {
-      console.error('Error fetching questions:', error);
-      setQuestionsError('Failed to load questions. Please try again later.');
+      console.error('Failed to fetch questions:', error);
+      const errorMessage = error.response?.status === 404
+        ? 'No questions available for this meeting yet. Please check back later.'
+        : (error.response?.data?.message || error.message || 'Failed to fetch questions');
+        
+      setQuestionsError(errorMessage);
+      
+      return [];
     } finally {
       setQuestionsLoading(false);
     }
@@ -504,19 +515,42 @@ const StaffDashboard = () => {
           message: 'Please rate all questions before submitting',
           severity: 'warning'
         });
-        return;
+        return false;
       }
       
       setLoading(true);
 
+      // Create a flag to track submission completion to avoid duplicate submissions
+      let isSubmissionCompleted = false;
+      
+      // Set a timeout to ensure we exit loading state even if API doesn't respond
+      const submissionTimeout = setTimeout(() => {
+        if (!isSubmissionCompleted) {
+          console.error('Feedback submission timed out');
+          setLoading(false);
+          setSnackbar({
+            open: true,
+            message: 'Submission timed out. Please try again.',
+            severity: 'error'
+          });
+        }
+      }, 20000); // 20 second timeout
+      
       // Try to submit feedback
       try {
         const token = localStorage.getItem('token');
+        
+        if (!token) {
+          throw new Error('No authentication token found for submission');
+        }
         
         // Get meetingId from active meeting if available
         const activeMeetingId = activeMeeting?.id || null;
           
         console.log('Submitting feedback for meeting ID:', activeMeetingId);
+        
+        // Track all submission promises
+        const submissionPromises = [];
         
         // Process each question's rating and submit individually
         for (const [questionId, rating] of Object.entries(localRatings)) {
@@ -524,29 +558,28 @@ const StaffDashboard = () => {
             // Get notes for this question if available
             const noteText = notes[questionId] || '';
             
-            // Using the correct API endpoint for feedback submission
-            await axios.post('http://localhost:8080/api/feedback/submit', {
-              questionId: parseInt(questionId),
-              rating: rating,
-              notes: noteText, // Include notes from the form
-              meetingId: activeMeetingId // Include the meetingId
-            }, {
-              headers: {
-                'x-access-token': token,
-                'Content-Type': 'application/json'
-              }
-            });
-            
-            console.log(`Feedback for question ${questionId} submitted successfully with notes: ${noteText ? 'Yes' : 'No'}`);
+            // Add to promises array instead of awaiting each one
+            submissionPromises.push(
+              axios.post('http://localhost:8080/api/feedback/submit', {
+                questionId: parseInt(questionId),
+                rating: rating,
+                notes: noteText,
+                meetingId: activeMeetingId
+              }, {
+                headers: {
+                  'x-access-token': token,
+                  'Content-Type': 'application/json'
+                }
+              })
+            );
           }
         }
-
-        // Show success message
-        setSnackbar({
-          open: true,
-          message: 'Feedback submitted successfully',
-          severity: 'success'
-        });
+        
+        // Wait for all submissions to complete
+        const submitResponse = await Promise.all(submissionPromises);
+        
+        isSubmissionCompleted = true;
+        clearTimeout(submissionTimeout);
 
         // Reset ratings
         const resetRatings = {};
@@ -557,9 +590,17 @@ const StaffDashboard = () => {
         setFeedbackSubmitted(true);
         setShouldShowQuestions(false);
         
+        // Show permanent feedback alert
+        setFeedbackAlert({
+          open: true,
+          message: 'Feedback submitted successfully'
+        });
+        
         return true;
       } catch (apiError) {
         console.error('Error submitting feedback to API:', apiError);
+        isSubmissionCompleted = true;
+        clearTimeout(submissionTimeout);
         
         // Show error message
         setSnackbar({
@@ -592,6 +633,14 @@ const StaffDashboard = () => {
 
   const handleCloseSnackbar = () => {
     dispatch(hideSnackbar());
+  };
+
+  // New function to close the persistent feedback alert if needed
+  const handleCloseFeedbackAlert = () => {
+    setFeedbackAlert(prev => ({
+      ...prev,
+      open: false
+    }));
   };
 
   // Add a direct API call function to fetch meetings
@@ -765,8 +814,11 @@ const StaffDashboard = () => {
     }
   };
 
-  // Add polling for upcoming meetings
+  // Function to check for meetings that are about to start within 5 minutes
   const checkForUpcomingMeetings = () => {
+    // Disable notifications about upcoming meetings
+    const disableNotifications = true;
+    
     if (!meetings || (!meetings.futureMeetings && !meetings.currentMeetings)) return;
     
     console.log('Checking for upcoming meetings within 5 minutes window...');
@@ -821,13 +873,6 @@ const StaffDashboard = () => {
       // If we're on the feedback section, load questions for this meeting
       if (activeSection === 'submit-feedback') {
         fetchQuestions(upcomingMeeting.id);
-      } else {
-        // Show notification about available feedback
-        setSnackbar({
-          open: true,
-          message: `Questions are now available for the upcoming meeting: ${upcomingMeeting.title}`,
-          severity: 'info'
-        });
       }
     } else if (upcomingMeeting) {
       console.log(`Next meeting is in ${minutesUntilStart} minutes, no questions yet.`);
@@ -852,13 +897,6 @@ const StaffDashboard = () => {
           console.log(`It's 5 minutes before meeting ${upcomingMeeting.id}, showing questions now`);
           setShouldShowQuestions(true);
           
-          // Show notification
-          setSnackbar({
-            open: true,
-            message: `Questions are now available for meeting: ${upcomingMeeting.title}`,
-            severity: 'info'
-          });
-          
           // If already on feedback section, load questions
           if (activeSection === 'submit-feedback') {
             fetchQuestions(upcomingMeeting.id);
@@ -870,7 +908,37 @@ const StaffDashboard = () => {
     }
   };
 
-  // Add polling interval setup
+  // Set up polling in a useEffect
+  useEffect(() => {
+    // Start polling for meetings after they've been loaded
+    if (meetings && (meetings.currentMeetings || meetings.futureMeetings)) {
+      // Only start polling if we're not already polling
+      if (!pollingIntervalRef.current) {
+        startPollingForMeetings();
+      }
+    }
+    
+    // Clean up on component unmount
+    return () => {
+      stopPollingForMeetings();
+    };
+  }, [meetings, activeSection]);
+  
+  // Separate effect for meeting-specific actions
+  useEffect(() => {
+    // If we're on the feedback section and have an active meeting,
+    // fetch questions for this meeting, but ONLY if we haven't loaded them yet
+    if (activeSection === 'submit-feedback' && activeMeeting && 
+        !questionsLoading && !localQuestions.length && !questionsError) {
+      console.log('Loading questions for active meeting from section change:', activeMeeting.id);
+      fetchQuestions(activeMeeting.id);
+    }
+  }, [activeSection, activeMeeting]);
+  
+  // Prevent unnecessary rerenders by using a ref to track if this is the initial load
+  const initialLoadRef = useRef(false);
+  
+  // Reduce polling frequency for meeting checks
   const startPollingForMeetings = () => {
     // Clear any existing interval
     if (pollingIntervalRef.current) {
@@ -878,15 +946,25 @@ const StaffDashboard = () => {
       pollingIntervalRef.current = null;
     }
     
-    console.log('Starting to poll for upcoming meetings every 30 seconds');
+    // If we already did one check and are on a different section than feedback,
+    // we can poll less frequently
+    const pollingInterval = activeSection === 'submit-feedback' ? 30000 : 60000;
     
-    // Initial check
-    checkForUpcomingMeetings();
+    console.log(`Starting to poll for upcoming meetings every ${pollingInterval/1000} seconds`);
     
-    // Set up new interval
-    pollingIntervalRef.current = setInterval(() => {
+    // Initial check only if we haven't done one yet
+    if (!initialLoadRef.current) {
       checkForUpcomingMeetings();
-    }, 30000); // 30 seconds interval
+      initialLoadRef.current = true;
+    }
+    
+    // Set up new interval with more reasonable frequency
+    pollingIntervalRef.current = setInterval(() => {
+      // Only check for upcoming meetings if needed
+      if (!feedbackSubmitted) {
+        checkForUpcomingMeetings();
+      }
+    }, pollingInterval);
   };
 
   // Function to stop polling
@@ -901,18 +979,21 @@ const StaffDashboard = () => {
     }
   };
 
-  // Set up polling in a useEffect
+  // Add useEffect to clear any info notifications on mount
   useEffect(() => {
-    // Start polling for meetings after they've been loaded
-    if (meetings && (meetings.currentMeetings || meetings.futureMeetings)) {
-      startPollingForMeetings();
-    }
+    // Clear any info notifications about questions on component mount
+    const infoMessages = [
+      "Questions are now available for the upcoming meeting",
+      "Questions are now available for meeting"
+    ];
     
-    // Clean up on component unmount
-    return () => {
-      stopPollingForMeetings();
-    };
-  }, [meetings, activeSection, fetchQuestions]);
+    // Check if current snackbar is an info notification about questions
+    if (snackbar.open && 
+        snackbar.severity === 'info' && 
+        infoMessages.some(msg => (snackbar.message || '').includes(msg))) {
+      dispatch(hideSnackbar());
+    }
+  }, []);
 
   // Main content
   const renderMainContent = () => {
@@ -954,6 +1035,8 @@ const StaffDashboard = () => {
             feedbackSubmitted={feedbackSubmitted}
             setFeedbackSubmitted={setFeedbackSubmitted}
             shouldShowQuestions={shouldShowQuestions}
+            setQuestionsLoading={setQuestionsLoading}
+            setQuestionsError={setQuestionsError}
           />
         );
       default:
@@ -970,9 +1053,9 @@ const StaffDashboard = () => {
     <Box sx={{ display: 'flex' }}>
       {/* Sidebar */}
       <SidebarComponent 
+        onSectionChange={handleSectionChange}
         activeSection={activeSection} 
-        handleSectionChange={handleSectionChange} 
-        handleLogout={handleLogout}
+        onLogout={handleLogout}
       />
 
       {/* Main content */}
@@ -981,31 +1064,155 @@ const StaffDashboard = () => {
         sx={{ 
           flexGrow: 1, 
           p: 3,
+          ml: { sm: '240px' },
           bgcolor: '#f5f5f7',
-          ml: '240px',
-          minHeight: '100vh'
+          minHeight: '100vh',
+          position: 'relative'
         }}
       >
-        <Container maxWidth="lg">
-          {renderMainContent()}
-        </Container>
+        {/* Persistent feedback submission alert */}
+        {feedbackAlert.open && (
+          <Alert 
+            severity="success"
+            icon={<CheckCircleIcon fontSize="large" />}
+            sx={{ 
+              position: 'fixed', 
+              bottom: 24, 
+              left: { xs: '50%', sm: 'calc(240px + 50%)' }, 
+              transform: 'translateX(-50%)',
+              zIndex: 9999,
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
+              minWidth: '300px',
+              maxWidth: { xs: '90%', sm: '400px' },
+              py: 2,
+              fontSize: '1rem',
+              fontWeight: 'medium',
+              border: '1px solid #c8e6c9',
+              bgcolor: 'rgba(255, 255, 255, 0.97)'
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                Feedback submitted successfully
+              </Typography>
       </Box>
+          </Alert>
+        )}
+
+        {/* Loading overlay - similar to Academic Director's dashboard */}
+        {(loading || questionsLoading || meetingsLoading || feedbackLoading) && !profile && (
+          <Fade in={true}>
+            <Box sx={{ 
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+              backgroundColor: 'rgba(25, 118, 210, 0.05)',
+              backdropFilter: 'blur(5px)'
+            }}>
+              <Box sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative'
+              }}>
+                <Box sx={{
+                  width: '80px',
+                  height: '80px',
+                  position: 'relative',
+                  animation: 'rotate 3s linear infinite',
+                  '@keyframes rotate': {
+                    '0%': {
+                      transform: 'rotate(0deg)'
+                    },
+                    '100%': {
+                      transform: 'rotate(360deg)'
+                    }
+                  }
+                }}>
+                  <Box sx={{
+                    position: 'absolute',
+                    width: '100%',
+                    height: '100%',
+                    border: '3px solid transparent',
+                    borderRadius: '50%',
+                    borderTopColor: '#3f51b5',
+                    borderBottomColor: '#f50057',
+                    borderLeftColor: '#00acc1',
+                    borderRightColor: '#ff9800',
+                    filter: 'drop-shadow(0 0 8px rgba(63, 81, 181, 0.5))'
+                  }} />
+                  <Box sx={{
+                    position: 'absolute',
+                    top: '10px',
+                    left: '10px',
+                    right: '10px',
+                    bottom: '10px',
+                    border: '3px solid transparent',
+                    borderRadius: '50%',
+                    borderTopColor: '#00acc1',
+                    borderBottomColor: '#3f51b5',
+                    borderLeftColor: '#ff9800',
+                    borderRightColor: '#f50057',
+                    animation: 'rotate 1.5s linear infinite reverse',
+                  }} />
+                </Box>
+
+                <Box sx={{
+                  mt: 4,
+                  textAlign: 'center',
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+                  border: '1px solid rgba(0, 0, 0, 0.05)'
+                }}>
+                  <Typography 
+                    variant="h6" 
+                    sx={{ 
+                      fontWeight: 600, 
+                      background: 'linear-gradient(45deg, #3f51b5 30%, #00acc1 90%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      mb: 1
+                    }}
+                  >
+                    Staff Dashboard
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    Loading your dashboard...
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          </Fade>
+        )}
+
+        {/* Main content */}
+        {renderMainContent()}
 
       {/* Snackbar for notifications */}
       <Snackbar
-        open={snackbar.open}
+          open={snackbar.open && !(
+            snackbar.severity === 'info' && 
+            (snackbar.message || '').includes('Questions are now available')
+          )}
         autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert 
-          onClose={() => setSnackbar({ ...snackbar, open: false })} 
-          severity={snackbar.severity} 
-          sx={{ width: '100%' }}
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         >
+          <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
           {snackbar.message}
         </Alert>
       </Snackbar>
+      </Box>
     </Box>
   );
 };

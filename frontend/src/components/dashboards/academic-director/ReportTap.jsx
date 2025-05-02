@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
-  Box, Typography, Grid, Paper, Card, CardContent, Button, Alert, CircularProgress
+  Box, Typography, Grid, Paper, Card, CardContent, Button, Alert, CircularProgress, Fade
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import { clearReportState } from '../../../redux/slices/reportSlice';
@@ -106,10 +106,57 @@ const ReportTap = ({
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3, position: 'relative' }}>
       <Typography variant="h5" gutterBottom sx={{ mb: 4, fontWeight: 'bold' }}>
         Reports
       </Typography>
+      
+      {/* Consistent loading UI overlay */}
+      {loading && (
+        <Fade in={loading}>
+          <Box sx={{ 
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            backgroundColor: 'rgba(25, 118, 210, 0.05)',
+            backdropFilter: 'blur(5px)'
+          }}>
+            <CircularProgress size={60} thickness={4} sx={{ color: '#1A2137', mb: 3 }} />
+            <Box sx={{
+              mt: 4,
+              textAlign: 'center',
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              padding: '12px 24px',
+              borderRadius: '8px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+              border: '1px solid rgba(0, 0, 0, 0.05)'
+            }}>
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  fontWeight: 600, 
+                  background: 'linear-gradient(45deg, #3f51b5 30%, #00acc1 90%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  mb: 1
+                }}
+              >
+                Reports
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                Generating your reports...
+              </Typography>
+            </Box>
+          </Box>
+        </Fade>
+      )}
       
       {downloadSuccess && (
         <Alert severity="success" sx={{ mb: 3 }}>
