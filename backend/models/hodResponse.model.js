@@ -17,6 +17,22 @@ module.exports = (sequelize, Sequelize) => {
         key: 'id'
       }
     },
+    meetingId: {
+      type: Sequelize.INTEGER,
+      allowNull: true, // Some older responses might not have meeting ID
+      references: {
+        model: 'meetings',
+        key: 'id'
+      }
+    },
+    responded: {
+      type: Sequelize.BOOLEAN,
+      defaultValue: true
+    },
+    respondedAt: {
+      type: Sequelize.DATE,
+      defaultValue: Sequelize.NOW
+    },
     hodId: {
       type: Sequelize.INTEGER,
       allowNull: false,

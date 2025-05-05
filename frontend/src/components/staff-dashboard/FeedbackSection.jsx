@@ -1,10 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Typography, Paper, Button, Rating, Alert, CircularProgress, Modal, Fade, TextField } from '@mui/material';
+import { Box, Typography, Paper, Button, Rating, Alert, CircularProgress, Modal, Fade, TextField, LinearProgress } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
-import { Player } from '@lottiefiles/react-lottie-player';
-import ratingAnimation from '../../assets/animations/rating-animation.json';
-import countdownAnimation from '../../assets/animations/countdown.json';
-import successAnimation from '../../assets/animations/success-confetti.json';
+import { CountdownCircleTimer } from 'react-countdown-circle-timer';
 import RefreshIcon from '@mui/icons-material/Refresh';
 
 const FeedbackSection = ({ 
@@ -29,6 +26,7 @@ const FeedbackSection = ({
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showCountdown, setShowCountdown] = useState(false);
   const [countdown, setCountdown] = useState(3);
+  const [countdownProgress, setCountdownProgress] = useState(100);
   const [showThreeSecondCountdown, setShowThreeSecondCountdown] = useState(false);
   const [initialCountdownComplete, setInitialCountdownComplete] = useState(false);
   const [questionsReady, setQuestionsReady] = useState(false);
@@ -180,19 +178,65 @@ const FeedbackSection = ({
     console.log('Starting 3-second countdown before showing questions');
     setShowThreeSecondCountdown(true);
     
+    // Play audio cue for accessibility
+    const playAudioCue = () => {
+      try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 660;
+        gainNode.gain.value = 0.1;
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.start();
+        setTimeout(() => oscillator.stop(), 200);
+      } catch (error) {
+        console.log('Audio cue not supported');
+      }
+    };
+    
     // Start at 3
     setCountdown(3);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    setCountdownProgress(100);
+    playAudioCue();
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Progress animation for 3
+    for (let i = 100; i >= 0; i -= 5) {
+      setCountdownProgress(i);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
     
     // Count down to 2
     setCountdown(2);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    playAudioCue();
+    setCountdownProgress(100);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Progress animation for 2
+    for (let i = 100; i >= 0; i -= 5) {
+      setCountdownProgress(i);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
     
     // Count down to 1
     setCountdown(1);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    playAudioCue();
+    setCountdownProgress(100);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Progress animation for 1
+    for (let i = 100; i >= 0; i -= 5) {
+      setCountdownProgress(i);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
     
     // Complete the countdown
+    playAudioCue();
     console.log('Countdown complete, showing questions');
     setShowThreeSecondCountdown(false);
     setInitialCountdownComplete(true);
@@ -209,13 +253,65 @@ const FeedbackSection = ({
     setApiRequestInProgress(true);
     setShowCountdown(true);
     
+    // Play audio cue for accessibility
+    const playAudioCue = () => {
+      try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 660;
+        gainNode.gain.value = 0.1;
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.start();
+        setTimeout(() => oscillator.stop(), 200);
+      } catch (error) {
+        console.log('Audio cue not supported');
+      }
+    };
+    
     // Animated countdown 3,2,1
     setCountdown(3);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    playAudioCue();
+    setCountdownProgress(100);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Progress animation for 3
+    for (let i = 100; i >= 0; i -= 5) {
+      setCountdownProgress(i);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
+    // Count down to 2
     setCountdown(2);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    playAudioCue();
+    setCountdownProgress(100);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Progress animation for 2
+    for (let i = 100; i >= 0; i -= 5) {
+      setCountdownProgress(i);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
+    // Count down to 1
     setCountdown(1);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    playAudioCue();
+    setCountdownProgress(100);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Progress animation for 1
+    for (let i = 100; i >= 0; i -= 5) {
+      setCountdownProgress(i);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
+    playAudioCue();
+    
     setShowCountdown(false);
     
     // Submit feedback with notes
@@ -320,22 +416,7 @@ const FeedbackSection = ({
 
   // When questions are loading
   if (questionsLoading) {
-    return (
-      <Paper sx={{ 
-        p: 4, 
-        borderRadius: 2, 
-        minHeight: '400px', 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        flexDirection: 'column',
-        background: 'linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)'
-      }}>
-        <CircularProgress size={60} thickness={4} sx={{ color: '#1A2137', mb: 3 }} />
-        <Typography variant="h6" sx={{ color: '#1A2137', mb: 1 }}>Loading questions...</Typography>
-        <Typography variant="body2" sx={{ color: '#555' }}>This will take just a moment</Typography>
-      </Paper>
-    );
+    return <Box sx={{ display: 'none' }}></Box>;
   }
 
   // When there's an error loading questions
@@ -352,14 +433,19 @@ const FeedbackSection = ({
         minHeight: '400px',
         textAlign: 'center'
       }}>
-        <Box sx={{ width: '200px', height: '200px', mb: 3 }}>
-          <Player
-            autoplay
-            loop
-            src={ratingAnimation}
-            style={{ width: '100%', height: '100%' }}
-            rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
-          />
+        <Box sx={{ 
+          width: 200, 
+          height: 200, 
+          mb: 3,
+          borderRadius: '50%',
+          background: 'linear-gradient(135deg, #004777 0%, #1A2137 100%)',
+          display: 'flex',
+          alignItems: 'center', 
+          justifyContent: 'center'
+        }}>
+          <Typography variant="h2" sx={{ color: 'white', fontWeight: 'bold' }}>
+            !
+          </Typography>
         </Box>
         
         <Box sx={{ maxWidth: '500px' }}>
@@ -377,7 +463,7 @@ const FeedbackSection = ({
               <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
                 • Check "View Meetings" to see your scheduled meetings
               </Typography>
-            </Alert>
+        </Alert>
             <Alert severity="info" sx={{ textAlign: 'left' }}>
               <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
                 • Questions appear 5 minutes before each meeting starts
@@ -413,14 +499,20 @@ const FeedbackSection = ({
         minHeight: '400px',
         textAlign: 'center'
       }}>
-        <Box sx={{ width: '200px', height: '200px', mb: 3 }}>
-          <Player
-            autoplay
-            loop
-            src={ratingAnimation}
-            style={{ width: '100%', height: '100%' }}
-            rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
-          />
+        <Box sx={{ 
+          width: 140, 
+          height: 140, 
+          mb: 3,
+          borderRadius: '8px',
+          background: 'linear-gradient(135deg, #004777 0%, #1A2137 100%)',
+          display: 'flex',
+          alignItems: 'center', 
+          justifyContent: 'center',
+          boxShadow: '0 10px 20px rgba(26, 33, 55, 0.2)',
+        }}>
+          <Typography variant="h2" sx={{ color: 'white', fontWeight: 'bold' }}>
+            ✓
+          </Typography>
         </Box>
         <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#1A2137', mb: 2 }}>
         Thank you for your valuable feedback. Future meetings will be updated soon. ✅
@@ -457,7 +549,8 @@ const FeedbackSection = ({
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: 'rgba(26, 33, 55, 0.7)',
+          backgroundColor: 'rgba(26, 33, 55, 0.85)',
+          backgroundImage: 'radial-gradient(circle at center, rgba(41, 52, 92, 0.8) 0%, rgba(26, 33, 55, 0.95) 70%)',
           backdropFilter: 'blur(8px)',
           borderRadius: 2,
           zIndex: 10
@@ -465,26 +558,52 @@ const FeedbackSection = ({
           <Typography variant="h1" sx={{ 
             fontWeight: 'bold', 
             color: '#fff', 
-            mb: 3, 
+            mb: 4, 
             fontSize: '8rem',
-            textShadow: '0 0 20px rgba(255, 215, 0, 0.5)'
+            textShadow: '0 0 20px rgba(255, 215, 0, 0.5)',
+            transition: 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+            animation: `${countdown === 3 ? 'scaleIn 0.5s ease-out' : 
+                         countdown === 2 ? 'scaleIn 0.5s ease-out' : 
+                         countdown === 1 ? 'scaleIn 0.5s ease-out' : ''}`,
+            '@keyframes scaleIn': {
+              '0%': {
+                transform: 'scale(0.8)',
+                opacity: 0.5
+              },
+              '50%': {
+                transform: 'scale(1.1)'
+              },
+              '100%': {
+                transform: 'scale(1)',
+                opacity: 1
+              }
+            }
           }}>
             {countdown}
           </Typography>
           <Typography variant="h5" sx={{ 
             color: '#fff', 
-            mb: 3,
+            mb: 4,
             textShadow: '0 0 10px rgba(255, 255, 255, 0.3)'
           }}>
             Get ready to provide feedback
           </Typography>
-          <Box sx={{ width: 150, height: 150 }}>
-            <Player
-              autoplay
-              loop={false}
-              src={countdownAnimation}
-              style={{ width: '100%', height: '100%' }}
-              rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
+          
+          <Box sx={{ width: '250px', mb: 3 }}>
+            <LinearProgress 
+              variant="determinate" 
+              value={countdownProgress} 
+              sx={{
+                height: 10,
+                borderRadius: 5,
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                '& .MuiLinearProgress-bar': {
+                  borderRadius: 5,
+                  backgroundImage: 'linear-gradient(90deg, #FFD700 0%, #FFA500 100%)',
+                  boxShadow: '0 0 10px rgba(255, 215, 0, 0.5)',
+                  transition: 'transform 0.1s linear'
+                }
+              }}
             />
           </Box>
         </Box>
@@ -519,14 +638,19 @@ const FeedbackSection = ({
         minHeight: '400px',
         textAlign: 'center'
       }}>
-        <Box sx={{ width: '200px', height: '200px', mb: 3 }}>
-          <Player
-            autoplay
-            loop
-            src={ratingAnimation}
-            style={{ width: '100%', height: '100%' }}
-            rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
-          />
+        <Box sx={{ 
+          width: 200, 
+          height: 200, 
+          mb: 3,
+          borderRadius: '50%',
+          background: 'linear-gradient(135deg, #004777 0%, #1A2137 100%)',
+          display: 'flex',
+          alignItems: 'center', 
+          justifyContent: 'center'
+        }}>
+          <Typography variant="h2" sx={{ color: 'white', fontWeight: 'bold' }}>
+            {timeToMeeting !== null ? timeToMeeting : '?'}
+          </Typography>
         </Box>
         
         {questionsLoading ? (
@@ -571,7 +695,7 @@ const FeedbackSection = ({
               <Box sx={{ maxWidth: '500px' }}>
                 <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#1A2137', mb: 2 }}>
                   No feedback questions available yet
-                </Typography>
+          </Typography>
                 <Typography variant="body1" sx={{ color: '#555', mb: 3 }}>
                   Questions will appear here automatically when:
                 </Typography>
@@ -608,24 +732,18 @@ const FeedbackSection = ({
       overflow: 'hidden',
       boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
     }}>
-      {/* Animated stars background */}
+      {/* Background decoration */}
       <Box sx={{ 
         position: 'absolute', 
         right: 20, 
         top: 20, 
-        width: '180px',    // Increased from 120px 
-        height: '180px',   // Increased from 120px
-        opacity: 0.2,      // Increased from 0.08
-        zIndex: 0
-      }}>
-        <Player
-          autoplay
-          loop
-          src={ratingAnimation}
-          style={{ width: '100%', height: '100%' }}
-          rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
-        />
-      </Box>
+        width: '180px',
+        height: '180px',
+        opacity: 0.15,
+        zIndex: 0,
+        background: 'linear-gradient(135deg, #004777 0%, #1A2137 100%)',
+        borderRadius: '50%'
+      }} />
       
       <Typography variant="h5" sx={{ 
         fontWeight: 'bold', 
@@ -779,20 +897,58 @@ const FeedbackSection = ({
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'transparent',
+            background: 'rgba(26, 33, 55, 0.85)',
+            backgroundImage: 'radial-gradient(circle at center, rgba(41, 52, 92, 0.8) 0%, rgba(26, 33, 55, 0.95) 70%)',
+            backdropFilter: 'blur(10px)',
             outline: 'none',
             zIndex: 1000
           }}>
             <Typography variant="h1" sx={{ 
               fontWeight: 'bold', 
-              color: '#1A2137', 
+              color: '#FFFFFF', 
               textAlign: 'center',
-              fontSize: { xs: '16rem', sm: '20rem' },
+              fontSize: { xs: '14rem', sm: '18rem' },
               lineHeight: 1,
-              opacity: 0.9
+              mb: 6,
+              textShadow: '0 0 30px rgba(255, 215, 0, 0.5)',
+              transition: 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+              animation: `${countdown === 3 ? 'scaleIn 0.5s ease-out' : 
+                          countdown === 2 ? 'scaleIn 0.5s ease-out' : 
+                          countdown === 1 ? 'scaleIn 0.5s ease-out' : ''}`,
+              '@keyframes scaleIn': {
+                '0%': {
+                  transform: 'scale(0.8)',
+                  opacity: 0.5
+                },
+                '50%': {
+                  transform: 'scale(1.1)'
+                },
+                '100%': {
+                  transform: 'scale(1)',
+                  opacity: 1
+                }
+              }
             }}>
               {countdown}
             </Typography>
+            
+            <Box sx={{ width: '300px' }}>
+              <LinearProgress 
+                variant="determinate" 
+                value={countdownProgress} 
+                sx={{
+                  height: 12,
+                  borderRadius: 6,
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  '& .MuiLinearProgress-bar': {
+                    borderRadius: 6,
+                    backgroundImage: 'linear-gradient(90deg, #FFD700 0%, #FFA500 100%)',
+                    boxShadow: '0 0 10px rgba(255, 215, 0, 0.5)',
+                    transition: 'transform 0.1s linear'
+                  }
+                }}
+              />
+            </Box>
           </Box>
         </Fade>
       </Modal>
@@ -804,7 +960,7 @@ const FeedbackSection = ({
         closeAfterTransition
       >
         <Fade in={showSuccessModal}>
-          <Box sx={{ 
+          <Paper sx={{ 
             position: 'absolute',
             top: '50%',
             left: '50%',
@@ -812,28 +968,89 @@ const FeedbackSection = ({
             width: 400,
             bgcolor: 'background.paper',
             borderRadius: 2,
-            boxShadow: 24,
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
             p: 4,
             textAlign: 'center',
-            background: 'rgba(255, 255, 255, 0.9)',
+            background: 'linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)',
             backdropFilter: 'blur(10px)'
           }}>
-            <Box sx={{ width: 150, height: 150, mx: 'auto', mb: 2 }}>
-              <Player
-                autoplay
-                loop
-                src={successAnimation}
-                style={{ width: '100%', height: '100%' }}
-                rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
-              />
+            <Box sx={{ 
+              width: 140, 
+              height: 140, 
+              mx: 'auto', 
+              mb: 3, 
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, #004777 0%, #1A2137 100%)',
+              boxShadow: '0 10px 20px rgba(26, 33, 55, 0.2)',
+              animation: 'fadeInScale 0.6s ease-out',
+              '@keyframes fadeInScale': {
+                '0%': {
+                  transform: 'scale(0.5)',
+                  opacity: 0
+                },
+                '100%': {
+                  transform: 'scale(1)',
+                  opacity: 1
+                }
+              }
+            }}>
+              <Typography variant="h1" sx={{ 
+                color: 'white', 
+                fontWeight: 'bold',
+                fontSize: '5rem'
+              }}>
+                ✓
+              </Typography>
             </Box>
-            <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold', color: '#1A2137' }}>
-              Thank You!
+            <Typography variant="h5" sx={{ 
+              mb: 2, 
+              fontWeight: 'bold', 
+              color: '#2E7D32',
+              animation: 'fadeIn 0.6s ease-out 0.3s both',
+              '@keyframes fadeIn': {
+                '0%': {
+                  transform: 'translateY(20px)',
+                  opacity: 0
+                },
+                '100%': {
+                  transform: 'translateY(0)',
+                  opacity: 1
+                }
+              }
+            }}>
+              Thank you for your feedback!
             </Typography>
-            <Typography variant="body1" sx={{ mb: 2, color: '#555' }}>
-              Your feedback has been submitted successfully.
+            <Typography variant="body1" sx={{ 
+              mb: 3, 
+              color: '#555',
+              animation: 'fadeIn 0.6s ease-out 0.6s both'
+            }}>
+              Let's wait for the next meeting, dear professor. You will be notified when new meetings are scheduled for your department.
             </Typography>
-          </Box>
+            
+            <Button 
+              variant="contained" 
+              color="primary" 
+              onClick={() => setShowSuccessModal(false)}
+              sx={{ 
+                px: 4, 
+                py: 1.5,
+                borderRadius: 2,
+                background: 'linear-gradient(45deg, #1A237E 30%, #283593 90%)',
+                animation: 'fadeIn 0.6s ease-out 0.9s both',
+                transition: 'all 0.3s',
+                '&:hover': {
+                  transform: 'translateY(-3px)',
+                  boxShadow: '0 10px 20px rgba(26, 33, 55, 0.3)'
+                }
+              }}
+            >
+              Close
+            </Button>
+          </Paper>
         </Fade>
       </Modal>
     </Paper>

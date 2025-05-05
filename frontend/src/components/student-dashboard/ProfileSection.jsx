@@ -1,7 +1,5 @@
 import React from 'react';
 import { Box, Typography, Paper, Avatar, CircularProgress, Card, Divider, Grid } from '@mui/material';
-import { Player } from '@lottiefiles/react-lottie-player';
-import studentAnimation from '../../assets/animations/student-profile.json';
 import EmailIcon from '@mui/icons-material/Email';
 import SchoolIcon from '@mui/icons-material/School';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
@@ -9,49 +7,13 @@ import BusinessIcon from '@mui/icons-material/Business';
 import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 
 const ProfileSection = ({ userProfile, loading }) => {
+  // Return empty div when loading, as main dashboard loading will be shown
   if (loading) {
-    return (
-      <Paper sx={{ 
-        p: 4, 
-        borderRadius: 2, 
-        minHeight: '400px', 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center',
-        background: 'linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)',
-        boxShadow: '0 8px 30px rgba(0,0,0,0.12)'
-      }}>
-        <Box sx={{ textAlign: 'center' }}>
-          <CircularProgress size={60} thickness={4} sx={{ color: '#1A2137', mb: 2 }} />
-          <Typography variant="h6" sx={{ color: '#666' }}>
-            Loading profile information...
-          </Typography>
-        </Box>
-      </Paper>
-    );
+    return <Box sx={{ display: 'none' }}></Box>;
   }
 
   return (
     <Box sx={{ position: 'relative' }}>
-      {/* Background decoration */}
-      <Box sx={{
-        position: 'absolute',
-        top: -20,
-        right: -20,
-        width: '250px',
-        height: '250px',
-        opacity: 0.4,
-        zIndex: 0,
-        transform: 'rotate(10deg)'
-      }}>
-        <Player
-          autoplay
-          loop
-          src={studentAnimation}
-          style={{ width: '100%', height: '100%' }}
-        />
-      </Box>
-      
       <Paper sx={{ 
         borderRadius: 2,
         overflow: 'hidden',

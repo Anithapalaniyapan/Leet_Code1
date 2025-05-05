@@ -291,6 +291,13 @@ const ViewScheduleTab = ({ getDepartmentName, isDataPreloaded }) => {
                         size="small"
                         color="secondary"
                       />
+                      {getRoleDisplayName(meeting) === 'Student' && meeting.year && (
+                        <Chip 
+                          label={`Year: ${meeting.year}`}
+                          size="small"
+                          variant="outlined"
+                        />
+                      )}
                     </Box>
                     <Typography variant="body2" sx={{ mt: 2 }}>
                       {meeting.description || 'No description provided.'}
@@ -347,6 +354,14 @@ const ViewScheduleTab = ({ getDepartmentName, isDataPreloaded }) => {
                               color="secondary"
                               sx={{ mr: 1 }}
                             />
+                            {getRoleDisplayName(meeting) === 'Student' && meeting.year && (
+                              <Chip 
+                                label={`Year: ${meeting.year}`}
+                                size="small"
+                                variant="outlined"
+                                sx={{ mr: 1 }}
+                              />
+                            )}
                             <Chip 
                               label={meeting.status || 'Scheduled'}
                               size="small"

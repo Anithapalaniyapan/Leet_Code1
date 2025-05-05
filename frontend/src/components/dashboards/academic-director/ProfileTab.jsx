@@ -181,49 +181,6 @@ const ProfileTab = () => {
                 </Box>
               </CardContent>
             </Card>
-
-            {/* Quick Actions Card */}
-            <Card elevation={2} sx={{ borderRadius: 2 }}>
-              <CardContent>
-                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                  Quick Actions
-            </Typography>
-                <Stack spacing={2} sx={{ mt: 2 }}>
-                  <Button 
-                    variant="outlined" 
-                    startIcon={<CalendarMonthIcon />} 
-                    fullWidth
-                    sx={{ justifyContent: 'flex-start', textTransform: 'none', py: 1 }}
-                  >
-                    Create New Meeting
-                  </Button>
-                  <Button 
-                    variant="outlined" 
-                    startIcon={<QuestionAnswerIcon />} 
-                    fullWidth
-                    sx={{ justifyContent: 'flex-start', textTransform: 'none', py: 1 }}
-                  >
-                    Add Feedback Questions
-                  </Button>
-                  <Button 
-                    variant="outlined" 
-                    startIcon={<AssessmentIcon />} 
-                    fullWidth
-                    sx={{ justifyContent: 'flex-start', textTransform: 'none', py: 1 }}
-                  >
-                    Generate Reports
-                  </Button>
-                  <Button 
-                    variant="outlined" 
-                    startIcon={<CloudDownloadIcon />} 
-                    fullWidth
-                    sx={{ justifyContent: 'flex-start', textTransform: 'none', py: 1 }}
-                  >
-                    Download Analytics
-                  </Button>
-                </Stack>
-              </CardContent>
-            </Card>
           </Grid>
           
           {/* Right Column */}

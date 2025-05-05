@@ -66,6 +66,13 @@ module.exports = function(app) {
     controller.deleteMeeting
   );
   
+  // Mark meeting as responded by HOD
+  app.post(
+    '/api/meetings/:id/hod-response',
+    [authJwt.verifyToken, authJwt.isHOD],
+    controller.markMeetingRespondedByHOD
+  );
+  
   // Manually trigger meeting status updates - restricted to Academic and Executive Directors
   app.post(
     '/api/meetings/update-statuses',

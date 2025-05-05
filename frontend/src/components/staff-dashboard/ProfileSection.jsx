@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Paper, Avatar, CircularProgress, Card, Divider, Grid, Button } from '@mui/material';
-import { Player } from '@lottiefiles/react-lottie-player';
-import professorAnimation from '../../assets/animations/professor.json';
 import EmailIcon from '@mui/icons-material/Email';
 import SchoolIcon from '@mui/icons-material/School';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
@@ -80,25 +78,7 @@ const ProfileSection = ({ userProfile, loading }) => {
   };
 
   if (localLoading) {
-    return (
-      <Paper sx={{ 
-        p: 4, 
-        borderRadius: 2, 
-        minHeight: '400px', 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center',
-        background: 'linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)',
-        boxShadow: '0 8px 30px rgba(0,0,0,0.12)'
-      }}>
-        <Box sx={{ textAlign: 'center' }}>
-          <CircularProgress size={60} thickness={4} sx={{ color: '#1A2137', mb: 2 }} />
-          <Typography variant="h6" sx={{ color: '#666' }}>
-            Loading profile information...
-          </Typography>
-        </Box>
-      </Paper>
-    );
+    return <Box sx={{ display: 'none' }}></Box>;
   }
 
   // For debugging - log the original data to find issues
@@ -167,26 +147,6 @@ const ProfileSection = ({ userProfile, loading }) => {
 
   return (
     <Box sx={{ position: 'relative' }}>
-      {/* Background decoration */}
-      <Box sx={{
-        position: 'absolute',
-        top: -20,
-        right: -20,
-        width: '250px',
-        height: '250px',
-        opacity: 0.4,
-        zIndex: 0,
-        transform: 'rotate(10deg)'
-      }}>
-        <Player
-          autoplay
-          loop
-          src={professorAnimation}
-          style={{ width: '100%', height: '100%' }}
-          rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
-        />
-      </Box>
-      
       <Paper sx={{ 
         borderRadius: 2,
         overflow: 'hidden',

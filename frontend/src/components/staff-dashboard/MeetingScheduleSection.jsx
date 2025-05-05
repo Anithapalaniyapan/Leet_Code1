@@ -16,11 +16,9 @@ import {
   Card,
   IconButton
 } from '@mui/material';
-import { Player } from '@lottiefiles/react-lottie-player';
 import FeedbackIcon from '@mui/icons-material/Feedback';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EventIcon from '@mui/icons-material/Event';
-import scheduleAnimation from '../../assets/animations/calendar.json';
 import InfoIcon from '@mui/icons-material/Info';
 
 const MeetingScheduleSection = ({ 
@@ -106,20 +104,7 @@ const MeetingScheduleSection = ({
 
   // When meetings are loading
   if (loading) {
-    return (
-      <Paper sx={{ 
-        p: 4, 
-        borderRadius: 0, 
-        minHeight: '400px', 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center',
-        flexDirection: 'column' 
-      }}>
-        <CircularProgress size={60} thickness={4} sx={{ color: '#1A2137', mb: 3 }} />
-        <Typography variant="h6" sx={{ color: '#1A2137' }}>Loading meetings...</Typography>
-      </Paper>
-    );
+    return <Box sx={{ display: 'none' }}></Box>;
   }
 
   // When there's an error loading meetings
@@ -152,24 +137,6 @@ const MeetingScheduleSection = ({
         overflow: 'hidden'
       }}>
         {/* Background design elements */}
-        <Box sx={{
-          position: 'absolute',
-          top: 20,
-          right: 20,
-          width: '250px',
-          height: '250px',
-          opacity: 0.1,
-          zIndex: 0,
-          transform: 'rotate(5deg)'
-        }}>
-          <Player
-            autoplay
-            loop
-            src={scheduleAnimation}
-            style={{ width: '100%', height: '100%' }}
-          />
-        </Box>
-
         <Card sx={{
           maxWidth: 500,
           width: '100%',
@@ -186,19 +153,6 @@ const MeetingScheduleSection = ({
           flexDirection: 'column',
           alignItems: 'center'
         }}>
-          <Box sx={{ 
-            width: '120px', 
-            height: '120px', 
-            mb: 2,
-            filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.1))'
-          }}>
-            <Player
-              autoplay
-              loop
-              src={scheduleAnimation}
-              style={{ width: '100%', height: '100%' }}
-            />
-          </Box>
           
           <Typography variant="h5" sx={{ 
             fontWeight: 'bold', 
@@ -217,18 +171,18 @@ const MeetingScheduleSection = ({
               borderRadius: 2
             }
           }}>
-            No meetings scheduled
-          </Typography>
+          No meetings scheduled
+        </Typography>
           
           <Typography variant="body1" sx={{ color: '#555', maxWidth: '90%', mx: 'auto', mb: 2 }}>
             There are no upcoming meetings scheduled for you at this time. Meetings will appear here once they are assigned to your department.
-          </Typography>
+        </Typography>
           
-          <Button
+        <Button
             variant="contained"
-            color="primary"
-            onClick={handleRefreshMeetings}
-            startIcon={<RefreshIcon />}
+          color="primary"
+          onClick={handleRefreshMeetings}
+          startIcon={<RefreshIcon />}
             sx={{ 
               px: 3, 
               py: 1,
@@ -241,9 +195,9 @@ const MeetingScheduleSection = ({
                 boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
               }
             }}
-          >
-            Refresh Meetings
-          </Button>
+        >
+          Refresh Meetings
+        </Button>
           
           <Box sx={{ display: 'flex', alignItems: 'center', mt: 2, color: '#666' }}>
             <InfoIcon fontSize="small" sx={{ mr: 1 }} />
@@ -266,26 +220,6 @@ const MeetingScheduleSection = ({
       position: 'relative',
       overflow: 'hidden'
     }}>
-      {/* Animated background - make it more visible */}
-      <Box sx={{ 
-        position: 'absolute', 
-        top: -20, 
-        right: -20, 
-        width: '180px', 
-        height: '180px', 
-        opacity: 0.15,  // Increased opacity
-        zIndex: 0,
-        transform: 'rotate(10deg)'
-      }}>
-        <Player
-          autoplay
-          loop
-          src={scheduleAnimation}
-          style={{ width: '100%', height: '100%' }}
-          rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
-        />
-      </Box>
-      
       {/* Header with underline */}
       <Box sx={{ position: 'relative', mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h5" sx={{ 

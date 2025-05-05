@@ -859,9 +859,9 @@ const StudentDashboard = () => {
 
   return (
     <Box sx={{ display: 'flex' }}>
-      <Sidebar
-        activeSection={activeSection}
-        setActiveSection={setActiveSection}
+      <Sidebar 
+        activeSection={activeSection} 
+        setActiveSection={setActiveSection} 
         onLogout={handleLogout}
       />
       <Box 
@@ -884,7 +884,7 @@ const StudentDashboard = () => {
               left: 0,
               right: 0,
               bottom: 0,
-              display: 'flex',
+          display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
@@ -972,46 +972,46 @@ const StudentDashboard = () => {
         )}
 
         {/* Main Content */}
-        {activeSection === 'profile' && (
+          {activeSection === 'profile' && (
           <ProfileSection 
             userProfile={userProfile} 
             loading={loading}
           />
-        )}
-        
-        {activeSection === 'feedback' && (
-          <FeedbackSection 
-            questions={questions}
-            handleRatingChange={handleRatingChange}
-            handleSubmitFeedback={handleSubmitFeedback}
+          )}
+          
+          {activeSection === 'feedback' && (
+            <FeedbackSection 
+              questions={questions}
+              handleRatingChange={handleRatingChange}
+              handleSubmitFeedback={handleSubmitFeedback}
             ratings={ratings}
-            loading={loading}
-            questionsLoading={questionsLoading}
-            questionsError={questionsError}
-            activeMeeting={activeMeeting}
-            shouldShowQuestions={shouldShowQuestions}
+              loading={loading}
+              questionsLoading={questionsLoading}
+              questionsError={questionsError}
+              activeMeeting={activeMeeting}
+              shouldShowQuestions={shouldShowQuestions}
             feedbackSubmitted={feedbackSubmitted}
-          />
-        )}
-        
+            />
+          )}
+          
         {activeSection === 'meetings' && (
-          <MeetingScheduleSection 
-            meetings={meetings}
-            loading={loading}
+            <MeetingScheduleSection 
+              meetings={meetings}
+              loading={loading}
             error={error}
-            handleFetchQuestionsByMeeting={handleFetchQuestionsByMeeting}
-          />
-        )}
-        
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={6000}
-          onClose={handleCloseSnackbar}
-        >
+              handleFetchQuestionsByMeeting={handleFetchQuestionsByMeeting}
+            />
+          )}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+      >
           <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
       </Box>
     </Box>
   );

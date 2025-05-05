@@ -180,6 +180,16 @@ db.hodResponse.belongsTo(db.department, {
   as: 'department'
 });
 
+// Add the relationship between HOD response and meeting
+db.meeting.hasMany(db.hodResponse, {
+  foreignKey: 'meetingId',
+  as: 'hodResponses'
+});
+db.hodResponse.belongsTo(db.meeting, {
+  foreignKey: 'meetingId',
+  as: 'meeting'
+});
+
 // Meeting-Question relationship
 db.meeting.hasMany(db.question, { 
   as: 'questions',

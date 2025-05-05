@@ -40,4 +40,11 @@ router.get(
   hodResponseController.getQuestionsWithResponses
 );
 
+// Get all meetings responded to by a HOD for a specific department
+router.get(
+  '/hod/:departmentId',
+  [authJwt.verifyToken, authJwt.isHOD],
+  hodResponseController.getMeetingsRespondedByHOD
+);
+
 module.exports = router; 

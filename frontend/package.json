@@ -20,6 +20,7 @@
     "axios": "^1.8.4",
     "date-fns": "^4.1.0",
     "react": "^19.0.0",
+    "react-countdown-circle-timer": "^3.2.1",
     "react-dom": "^19.0.0",
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.4.1",

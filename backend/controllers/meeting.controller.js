@@ -588,3 +588,76 @@ exports.getUpcomingMeetingsWithinMinutes = async (req, res) => {
     res.status(500).send({ message: error.message });
   }
 };
+
+// Mark meeting as responded by HOD
+exports.markMeetingRespondedByHOD = async (req, res) => {
+  try {
+    const { id: meetingId } = req.params;
+    const { departmentId } = req.body;
+    const hodId = req.userId;
+
+    if (!meetingId || !departmentId) {
+      return res.status(400).send({
+        message: "Meeting ID and Department ID are required"
+      });
+    }
+
+    // Check if the meeting exists
+    const meeting = await Meeting.findByPk(meetingId);
+    if (!meeting) {
+      return res.status(404).send({
+        message: `Meeting with ID ${meetingId} not found`
+      });
+    }
+
+    // Create or update the meeting response record
+    const HODResponse = db.hodResponse || db.HodResponse; // Handle different casings
+    
+    if (!HODResponse) {
+      // If HODResponse model doesn't exist yet, create a simple tracking in meeting_hod_responses table
+      await db.sequelize.query(
+        `INSERT INTO meeting_hod_responses (meeting_id, hod_id, department_id, created_at, updated_at) 
+         VALUES (?, ?, ?, NOW(), NOW()) 
+         ON DUPLICATE KEY UPDATE updated_at = NOW()`,
+        {
+          replacements: [meetingId, hodId, departmentId],
+          type: db.sequelize.QueryTypes.INSERT
+        }
+      );
+    } else {
+      // Use the model if it exists
+      const [response, created] = await HODResponse.findOrCreate({
+        where: {
+          meetingId: meetingId,
+          hodId: hodId,
+          departmentId: departmentId
+        },
+        defaults: {
+          responded: true,
+          respondedAt: new Date()
+        }
+      });
+      
+      // If record already existed, update the responded timestamp
+      if (!created) {
+        response.responded = true;
+        response.respondedAt = new Date();
+        await response.save();
+      }
+    }
+
+    // Return success response
+    res.status(200).send({
+      message: 'Meeting marked as responded by HOD successfully',
+      meetingId: meetingId,
+      departmentId: departmentId,
+      hodId: hodId
+    });
+  } catch (error) {
+    console.error('Error marking meeting as responded by HOD:', error);
+    res.status(500).send({ 
+      message: 'Failed to mark meeting as responded',
+      error: error.message 
+    });
+  }
+};

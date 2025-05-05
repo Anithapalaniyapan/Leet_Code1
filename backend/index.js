@@ -24,7 +24,7 @@ app.use('/api/users', require('./routes/user.routes'));
 app.use('/api/feedback', require('./routes/feedback.routes'));
 app.use('/api/questions', require('./routes/question.routes'));
 app.use('/api/departments', require('./routes/department.routes'));
-app.use('/api/responses', require('./routes/hodresponse.routes'));
+app.use('/api/responses', require('./routes/hodResponse.routes'));
 
 // Meeting routes
 require('./routes/meeting.routes')(app);

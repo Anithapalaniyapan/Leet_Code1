@@ -19,8 +19,6 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import EventIcon from '@mui/icons-material/Event';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import EventBusyIcon from '@mui/icons-material/EventBusy';
-import { Player } from '@lottiefiles/react-lottie-player';
-import calendarAnimation from '../../assets/animations/calendar-animation.json';
 
 const MeetingScheduleSection = ({ meetings, loading, handleFetchQuestionsByMeeting }) => {
   // Helper function to format time with AM/PM
@@ -123,12 +121,7 @@ const MeetingScheduleSection = ({ meetings, loading, handleFetchQuestionsByMeeti
   };
 
   if (loading) {
-    return (
-      <Paper sx={{ p: 4, borderRadius: 0, minHeight: '400px', display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
-        <CircularProgress size={60} thickness={4} sx={{ color: '#1A2137', mb: 3 }} />
-        <Typography variant="h6" sx={{ color: '#1A2137' }}>Loading meetings...</Typography>
-      </Paper>
-    );
+    return <Box sx={{ display: 'none' }}></Box>;
   }
 
   return (
@@ -140,24 +133,6 @@ const MeetingScheduleSection = ({ meetings, loading, handleFetchQuestionsByMeeti
       boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
       border: '1px solid #e0e0e0'
     }}>
-      {/* Animated calendar background */}
-      <Box sx={{ 
-        position: 'absolute', 
-        right: 20, 
-        top: 20, 
-        width: '180px', 
-        height: '180px', 
-        opacity: 0.2,
-        zIndex: 0
-      }}>
-        <Player
-          autoplay
-          loop
-          src={calendarAnimation}
-          style={{ width: '100%', height: '100%' }}
-        />
-      </Box>
-      
       <Box sx={{ position: 'relative', zIndex: 1 }}>
         <Typography variant="h5" sx={{ 
           fontWeight: 'bold', 
@@ -327,14 +302,6 @@ const MeetingScheduleSection = ({ meetings, loading, handleFetchQuestionsByMeeti
             flexDirection: 'column',
             alignItems: 'center' 
           }}>
-            <Box sx={{ width: '200px', height: '200px', mb: 3 }}>
-              <Player
-                autoplay
-                loop
-                src={calendarAnimation}
-                style={{ width: '100%', height: '100%' }}
-              />
-            </Box>
             <Typography variant="h6" color="#1A2137" sx={{ fontWeight: 'medium', mb: 1 }}>
               No meetings scheduled at this time
             </Typography>
