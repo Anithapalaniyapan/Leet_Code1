@@ -7,11 +7,11 @@ import {
 
 // Import all the analytics components
 import FeedbackOverview from './FeedbackOverview';
-import UserTypeComparison from './UserTypeComparison';
 import DepartmentFeedback from './DepartmentFeedback';
 import DepartmentComparison from './DepartmentComparison';
 import QuestionFeedback from './QuestionFeedback';
 import RecentFeedback from './RecentFeedback';
+import StarRating from './StarRating';
 
 const Analytics = () => {
   const [departments, setDepartments] = useState([]);
@@ -272,14 +272,14 @@ const Analytics = () => {
   return (
     <Box sx={{ p: 3, position: 'relative' }}>
       <Typography variant="h5" gutterBottom sx={{ mb: 4, fontWeight: 'bold' }}>
-        Feedback Analysis Dashboard
+        Executive Feedback Analytics
       </Typography>
       
       {/* Loading overlay */}
-      {(feedbackLoading || departmentFeedbackLoading || questionFeedbackLoading) && (
-        <Fade in={true}>
+      {feedbackLoading && (
+        <Fade in={feedbackLoading}>
           <Box sx={{ 
-            position: 'fixed',
+            position: 'absolute',
             top: 0,
             left: 0,
             right: 0,
@@ -289,96 +289,16 @@ const Analytics = () => {
             justifyContent: 'center',
             zIndex: 9999,
             backgroundColor: 'rgba(25, 118, 210, 0.05)',
-            backdropFilter: 'blur(5px)',
-            height: '100vh',
-            width: '100%',
-            margin: 0,
-            transform: 'translateY(0)',
-            paddingLeft: '240px'
+            backdropFilter: 'blur(5px)'
           }}>
-            <Box sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              position: 'relative',
-              transform: 'translateY(-20px)'
-            }}>
-              <Box sx={{
-                width: '80px',
-                height: '80px',
-                position: 'relative',
-                animation: 'rotate 3s linear infinite',
-                '@keyframes rotate': {
-                  '0%': {
-                    transform: 'rotate(0deg)'
-                  },
-                  '100%': {
-                    transform: 'rotate(360deg)'
-                  }
-                }
-              }}>
-                <Box sx={{
-                  position: 'absolute',
-                  width: '100%',
-                  height: '100%',
-                  border: '3px solid transparent',
-                  borderRadius: '50%',
-                  borderTopColor: '#3f51b5',
-                  borderBottomColor: '#f50057',
-                  borderLeftColor: '#00acc1',
-                  borderRightColor: '#ff9800',
-                  filter: 'drop-shadow(0 0 8px rgba(63, 81, 181, 0.5))'
-                }} />
-                <Box sx={{
-                  position: 'absolute',
-                  top: '10px',
-                  left: '10px',
-                  right: '10px',
-                  bottom: '10px',
-                  border: '3px solid transparent',
-                  borderRadius: '50%',
-                  borderTopColor: '#00acc1',
-                  borderBottomColor: '#3f51b5',
-                  borderLeftColor: '#ff9800',
-                  borderRightColor: '#f50057',
-                  animation: 'rotate 1.5s linear infinite reverse',
-                }} />
-              </Box>
-
-              <Box sx={{
-                mt: 4,
-                textAlign: 'center',
-                backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                padding: '12px 24px',
-                borderRadius: '8px',
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
-                border: '1px solid rgba(0, 0, 0, 0.05)'
-              }}>
-                <Typography 
-                  variant="h6" 
-                  sx={{ 
-                    fontWeight: 600, 
-                    background: 'linear-gradient(45deg, #3f51b5 30%, #00acc1 90%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    mb: 1
-                  }}
-                >
-                  Analytics
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  Loading data...
-                </Typography>
-              </Box>
-            </Box>
+            <CircularProgress size={60} thickness={4} sx={{ color: '#1A2137', mb: 3 }} />
           </Box>
         </Fade>
       )}
       
       {!feedbackLoading && (
         <>
-          {/* Department selector */}
+          {/* Department selection */}
           <Paper sx={{ p: 3, mb: 4, borderRadius: 2, boxShadow: 3 }}>
             <Typography variant="h6" sx={{ mb: 3, fontWeight: 'bold' }}>
               Department Analysis
@@ -403,16 +323,36 @@ const Analytics = () => {
               </Select>
             </FormControl>
           </Paper>
-          
+            
           {/* Overall feedback overview */}
           <FeedbackOverview 
             feedbackStats={feedbackStats}
           />
           
-          {/* User type comparison */}
-          <UserTypeComparison 
+          {/* Recent feedback entries */}
+          <RecentFeedback 
             feedbackData={feedbackData}
           />
+          
+          {/* Overall Rating Display */}
+          <Paper sx={{ p: 4, mb: 4, borderRadius: 2, boxShadow: 3 }}>
+            <Typography variant="h5" sx={{ mb: 3, fontWeight: 'bold' }}>Overall Satisfaction Rating</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="h4" sx={{ mb: 2, fontWeight: 'bold' }}>
+                  {parseFloat(feedbackStats.overallAverageRating).toFixed(1)}
+                </Typography>
+                <StarRating 
+                  rating={feedbackStats.overallAverageRating} 
+                  size="large"
+                  showValue={false}
+                />
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                  Based on {feedbackStats.totalResponses} responses
+                </Typography>
+              </Box>
+            </Box>
+          </Paper>
           
           {/* Department-specific feedback */}
           <DepartmentFeedback 
@@ -428,46 +368,16 @@ const Analytics = () => {
             feedbackStats={feedbackStats}
           />
           
-          {/* Question selector */}
-          <Paper sx={{ p: 3, mb: 4, borderRadius: 2, boxShadow: 3 }}>
-            <Typography variant="h6" sx={{ mb: 3, fontWeight: 'bold' }}>
-              Question-Specific Analysis
-            </Typography>
-            <FormControl fullWidth>
-              <InputLabel id="question-select-label">Select Question</InputLabel>
-              <Select
-                labelId="question-select-label"
-                id="question-select"
-                value={selectedQuestionId}
-                onChange={(e) => setSelectedQuestionId(e.target.value)}
-                label="Select Question"
-              >
-                <MenuItem value="">
-                  <em>Select a question</em>
-                </MenuItem>
-                {allQuestions.map((question) => (
-                  <MenuItem key={question.id} value={question.id}>
-                    {question.text} {question.department?.name ? `(${question.department.name})` : ''}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Paper>
-          
-          {/* Question-specific feedback */}
-          <div id="question-feedback-section">
+          {/* Question feedback section */}
+          {selectedQuestionId && (
             <QuestionFeedback 
               questionFeedback={questionFeedback}
               questionFeedbackLoading={questionFeedbackLoading}
-              selectedQuestionId={selectedQuestionId}
               allQuestions={allQuestions}
+              selectedQuestionId={selectedQuestionId}
+              setSelectedQuestionId={setSelectedQuestionId}
             />
-          </div>
-          
-          {/* Recent feedback */}
-          <RecentFeedback 
-            feedbackData={feedbackData}
-          />
+          )}
         </>
       )}
     </Box>

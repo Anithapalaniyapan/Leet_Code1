@@ -7,7 +7,6 @@ import {
 
 // Import all the analytics components
 import FeedbackOverview from '../../analytics/FeedbackOverview';
-import UserTypeComparison from '../../analytics/UserTypeComparison';
 import DepartmentFeedback from '../../analytics/DepartmentFeedback';
 import DepartmentComparison from '../../analytics/DepartmentComparison';
 
@@ -353,12 +352,6 @@ const AnalyticsTap = () => {
           <FeedbackOverview 
             feedbackStats={feedbackStats}
           />
-          
-          {/* User type comparison */}
-          <UserTypeComparison 
-            feedbackData={feedbackData}
-          />
-       
           
           {/* Department-specific feedback */}
           <DepartmentFeedback 

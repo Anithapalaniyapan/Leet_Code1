@@ -33,7 +33,7 @@ const QuestionFeedback = ({ questionFeedback, questionFeedbackLoading, selectedQ
   };
 
   return (
-    <Paper sx={{ p: 4, mb: 4, borderRadius: 2, boxShadow: 3 }}>
+    <Paper id="question-feedback-section" sx={{ p: 4, mb: 4, borderRadius: 2, boxShadow: 3 }}>
       <Typography variant="h5" sx={{ mb: 3, fontWeight: 'bold' }}>Feedback for Question</Typography>
       
       <Box sx={{ mb: 3, p: 2, bgcolor: '#f5f5f7', borderRadius: 1 }}>

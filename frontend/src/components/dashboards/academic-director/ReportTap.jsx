@@ -182,33 +182,7 @@ const ReportTap = ({
             </Typography>
             
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={4}>
-                <Card sx={{ p: 2, bgcolor: '#f8f9fa', height: '100%' }}>
-                  <CardContent>
-                    <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>
-                      All Feedback
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      Export all raw feedback responses with user information to Excel
-                    </Typography>
-                    <Button
-                      variant="contained"
-                      startIcon={loadingStates['feedback-all'] ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
-                      onClick={() => handleExport('feedback-all')}
-                      disabled={loadingStates['feedback-all']}
-                      fullWidth
-                      sx={{ 
-                        bgcolor: '#4CAF50', 
-                        '&:hover': { bgcolor: '#388E3C' }
-                      }}
-                    >
-                      {loadingStates['feedback-all'] ? 'Downloading...' : 'Export All Feedback'}
-                    </Button>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} sm={6} md={4}>
+              <Grid item xs={12} sm={6} md={6}>
                 <Card sx={{ p: 2, bgcolor: '#f8f9fa', height: '100%' }}>
                   <CardContent>
                     <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>
@@ -234,7 +208,7 @@ const ReportTap = ({
                 </Card>
               </Grid>
               
-              <Grid item xs={12} sm={6} md={4}>
+              <Grid item xs={12} sm={6} md={6}>
                 <Card sx={{ p: 2, bgcolor: '#f8f9fa', height: '100%' }}>
                   <CardContent>
                     <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>

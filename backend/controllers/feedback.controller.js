@@ -722,11 +722,18 @@ exports.generateIndividualReportExcel = async (req, res) => {
           model: User,
           as: 'user',
           attributes: ['id', 'username', 'fullName', 'year', 'departmentId'],
-          include: [{
-            model: Department,
-            as: 'department',
-            attributes: ['id', 'name']
-          }]
+          include: [
+            {
+              model: Department,
+              as: 'department',
+              attributes: ['id', 'name']
+            },
+            {
+              model: db.role,
+              as: 'roles',
+              attributes: ['id', 'name']
+            }
+          ]
         },
         {
           model: Question,
@@ -748,10 +755,44 @@ exports.generateIndividualReportExcel = async (req, res) => {
       // Determine role from username pattern
       let userRoleId = null;
       
-      // Simple pattern matching for username to determine role
-      if (user.username.match(/^E\d/) || user.username.startsWith('ST')) {
-        userRoleId = 1; // student
-      } 
+      // More comprehensive pattern matching for username role identification
+      if (user.username) {
+        // Check for student patterns
+        if (user.username.match(/^E\d/) || user.username.startsWith('ST')) {
+          userRoleId = 1; // student
+        }
+        // Check for staff patterns
+        else if (user.username.match(/^S\d/) || 
+                user.username.startsWith('SF') || 
+                user.username.includes('staff') || 
+                user.username.includes('Staff')) {
+          userRoleId = 3; // staff
+        }
+      }
+      
+      // If roles property exists, check it for role information
+      if (!userRoleId && user.roles) {
+        const userRoles = Array.isArray(user.roles) ? user.roles : [user.roles];
+        
+        // Look for staff role in user roles
+        for (const role of userRoles) {
+          const roleName = typeof role === 'object' ? (role.name || '') : role;
+          const roleId = typeof role === 'object' ? (role.id || 0) : 0;
+          
+          if (roleName.toLowerCase() === 'staff' || roleId === 3) {
+            userRoleId = 3;
+            break;
+          } else if (roleName.toLowerCase() === 'student' || roleId === 1) {
+            userRoleId = 1;
+            break;
+          }
+        }
+      }
+      
+      // For staff reports, if no role determined but user has department, assume staff
+      if (!userRoleId && roleId === 3 && user.departmentId) {
+        userRoleId = 3;
+      }
       
       // Skip if not the target role
       if (userRoleId !== roleId) return;
