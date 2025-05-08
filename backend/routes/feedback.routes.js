@@ -96,4 +96,40 @@ router.get(
   feedbackController.generateIndividualReportExcel
 );
 
+// Generate Excel report for meeting-specific feedback (academic director and executive director only)
+router.get(
+  '/excel/meeting/:meetingId',
+  [authJwt.verifyToken, authJwt.isAcademicDirectorOrExecutiveDirector],
+  feedbackController.generateMeetingFeedbackExcel
+);
+
+// Meeting-specific variants of all report types
+// Generate meeting-specific Excel report for all feedback
+router.get(
+  '/excel/meeting/:meetingId/all',
+  [authJwt.verifyToken, authJwt.isAcademicDirectorOrExecutiveDirector],
+  feedbackController.generateMeetingAllFeedbackExcel
+);
+
+// Generate meeting-specific Excel report for department statistics
+router.get(
+  '/excel/meeting/:meetingId/department/:departmentId',
+  [authJwt.verifyToken, authJwt.isAcademicDirectorOrExecutiveDirector],
+  feedbackController.generateMeetingDepartmentStatsExcel
+);
+
+// Generate meeting-specific Excel report for overall statistics
+router.get(
+  '/excel/meeting/:meetingId/overall',
+  [authJwt.verifyToken, authJwt.isAcademicDirectorOrExecutiveDirector],
+  feedbackController.generateMeetingOverallStatsExcel
+);
+
+// Generate meeting-specific Excel report for individual role reports
+router.get(
+  '/excel/meeting/:meetingId/individual/:roleType',
+  [authJwt.verifyToken, authJwt.isAcademicDirectorOrExecutiveDirector],
+  feedbackController.generateMeetingIndividualReportExcel
+);
+
 module.exports = router;

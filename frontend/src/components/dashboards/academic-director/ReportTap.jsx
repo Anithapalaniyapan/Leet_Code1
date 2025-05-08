@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
-  Box, Typography, Grid, Paper, Card, CardContent, Button, Alert, CircularProgress, Fade
+  Box, Typography, Grid, Paper, Card, CardContent, Button, Alert, CircularProgress, Fade,
+  FormControl, InputLabel, Select, MenuItem, Chip
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { clearReportState } from '../../../redux/slices/reportSlice';
+import axios from 'axios';
 
 const ReportTap = ({ 
   departments,
@@ -15,15 +19,132 @@ const ReportTap = ({
 }) => {
   const dispatch = useDispatch();
   const { downloadSuccess, generationSuccess, error } = useSelector(state => state.reports);
+  const [meetings, setMeetings] = useState([]);
+  const [selectedMeetingId, setSelectedMeetingId] = useState('');
+  const [selectedMeeting, setSelectedMeeting] = useState(null);
+  const [loadingMeetings, setLoadingMeetings] = useState(false);
   
   // Track individual loading states for each button
   const [loadingStates, setLoadingStates] = useState({
-    'feedback-all': false,
     'department-stats': false,
-    'overall-stats': false,
-    'student': false,
-    'staff': false
+    'overall-stats': false
   });
+
+  // Fetch meetings when component mounts
+  useEffect(() => {
+    fetchMeetings();
+  }, []);
+
+  // Helper function to determine role type
+  const determineRoleType = (meeting) => {
+    if (!meeting) return 'Student';
+    
+    if (meeting.roleId === 2 || 
+        (meeting.targetRole && meeting.targetRole.toLowerCase().includes('staff')) ||
+        meeting.isStaffMeeting) {
+      return 'Staff';
+    }
+    return 'Student';
+  };
+
+  // Format time to 12-hour (AM/PM) format
+  const formatTime = (timeString) => {
+    if (!timeString) return '';
+    
+    // If the time is already in a Date object or timestamp
+    if (timeString instanceof Date) {
+      return timeString.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+    
+    // If time is in 24-hour format (HH:MM:SS or HH:MM)
+    if (timeString.includes(':')) {
+      const [hours, minutes] = timeString.split(':');
+      const date = new Date();
+      date.setHours(parseInt(hours, 10));
+      date.setMinutes(parseInt(minutes, 10));
+      
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+    
+    return timeString;
+  };
+
+  // Format date to readable format
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (e) {
+      console.error('Error formatting date:', e);
+      return dateString;
+    }
+  };
+
+  // Fetch meetings from API
+  const fetchMeetings = async () => {
+    setLoadingMeetings(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:8080/api/meetings/all', {
+        headers: {
+          'x-access-token': token
+        }
+      });
+      
+      if (response.data) {
+        // Sort meetings by date in descending order (newest first)
+        const sortedMeetings = Array.isArray(response.data) ? response.data : [];
+        
+        sortedMeetings.sort((a, b) => {
+          return new Date(b.meetingDate || b.date || '') - new Date(a.meetingDate || a.date || '');
+        });
+        
+        console.log('Fetched meetings:', sortedMeetings);
+        setMeetings(sortedMeetings);
+      }
+    } catch (error) {
+      console.error('Error fetching meetings:', error);
+    } finally {
+      setLoadingMeetings(false);
+    }
+  };
+  
+  // Handle meeting selection change
+  const handleMeetingChange = (e) => {
+    const meetingId = e.target.value;
+    setSelectedMeetingId(meetingId);
+    
+    // Find the selected meeting object
+    const meeting = meetings.find(m => m.id == meetingId);
+    console.log('Selected meeting:', meeting);
+    setSelectedMeeting(meeting || null);
+  };
+
+  // Get meeting display text
+  const getMeetingDisplayText = (meeting) => {
+    if (!meeting) return "Select a meeting";
+    
+    const roleType = determineRoleType(meeting);
+    const formattedTime = formatTime(meeting.startTime);
+    const formattedDate = formatDate(meeting.meetingDate || meeting.date);
+    
+    return `${meeting.title} - ${roleType} - ${formattedDate}, ${formattedTime}`;
+  };
+
   // Debug props
   useEffect(() => {
     console.log('Reports component received props:');
@@ -31,6 +152,7 @@ const ReportTap = ({
     console.log('- handleDownloadReport:', typeof handleDownloadReport);
     console.log('- selectedDepartmentForStats:', selectedDepartmentForStats);
   }, [handleExportToExcel, handleDownloadReport, selectedDepartmentForStats]);
+
   // Clear report states when component unmounts
   useEffect(() => {
     return () => {
@@ -38,71 +160,146 @@ const ReportTap = ({
     };
   }, [dispatch]);
 
-  // Create safe handlers that check if functions exist before calling
-  const handleExport = (reportType) => {
-    console.log('Export requested for:', reportType);
-    // Set only this button's loading state to true
+  // Handle meeting-specific department stats
+  const handleMeetingDepartmentStats = async () => {
+    if (!selectedMeetingId) {
+      alert('Please select a meeting first');
+      return;
+    }
+
+    // Set the loading state for department stats button
     setLoadingStates(prev => ({
       ...prev,
-      [reportType]: true
+      'department-stats': true
     }));
-    
-    if (typeof handleExportToExcel === 'function') {
-      // Create a Promise to handle the loading state
-      Promise.resolve()
-        .then(() => handleExportToExcel(reportType))
-        .catch(err => console.error(err))
-        .finally(() => {
-          // Always reset loading state in the component
-          setTimeout(() => {
-            setLoadingStates(prev => ({
-              ...prev,
-              [reportType]: false
-            }));
-          }, 500); // Small delay to ensure it completes
-        });
-    } else {
-      console.error('handleExportToExcel is not a function', handleExportToExcel);
-      alert('Export functionality is not available. Please try again later.');
-      // Reset loading state if function doesn't exist
-      setLoadingStates(prev => ({
-        ...prev,
-        [reportType]: false
-      }));
+
+    try {
+      const token = localStorage.getItem('token');
+      
+      // If no department selected, use the overall departments stats endpoint
+      const url = selectedDepartmentForStats
+        ? `http://localhost:8080/api/feedback/excel/meeting/${selectedMeetingId}/department/${selectedDepartmentForStats}`
+        : `http://localhost:8080/api/feedback/excel/meeting/${selectedMeetingId}/overall`;
+        
+      const filename = selectedDepartmentForStats
+        ? `meeting_${selectedMeetingId}_department_${selectedDepartmentForStats}_stats.xlsx`
+        : `meeting_${selectedMeetingId}_all_departments_stats.xlsx`;
+      
+      const response = await axios({
+        method: 'GET',
+        url: url,
+        responseType: 'blob', // Important for file downloads
+        headers: {
+          'x-access-token': token
+        }
+      });
+
+      // Create a download link and trigger download
+      const downloadUrl = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading department stats:', error);
+      alert('Failed to download department statistics. Please try again later.');
+    } finally {
+      // Reset the loading state
+      setTimeout(() => {
+        setLoadingStates(prev => ({
+          ...prev,
+          'department-stats': false
+        }));
+      }, 500);
     }
   };
 
-  const handleDownload = (role, type) => {
-    console.log('Download requested for role:', role, 'type:', type);
-    // Set only this button's loading state to true
+  // Handle meeting-specific overall stats
+  const handleMeetingOverallStats = async () => {
+    if (!selectedMeetingId) {
+      alert('Please select a meeting first');
+      return;
+    }
+
+    // Set the loading state for overall stats button
     setLoadingStates(prev => ({
       ...prev,
-      [role]: true
+      'overall-stats': true
     }));
-    
-    if (typeof handleDownloadReport === 'function') {
-      // Create a Promise to handle the loading state
-      Promise.resolve()
-        .then(() => handleDownloadReport(role, type))
-        .catch(err => console.error(err))
-        .finally(() => {
-          // Always reset loading state in the component
-          setTimeout(() => {
-            setLoadingStates(prev => ({
-              ...prev,
-              [role]: false
-            }));
-          }, 500); // Small delay to ensure it completes
-        });
-    } else {
-      console.error('handleDownloadReport is not a function', handleDownloadReport);
-      alert('Download functionality is not available. Please try again later.');
-      // Reset loading state if function doesn't exist
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios({
+        method: 'GET',
+        url: `http://localhost:8080/api/feedback/excel/meeting/${selectedMeetingId}/overall`,
+        responseType: 'blob', // Important for file downloads
+        headers: {
+          'x-access-token': token
+        }
+      });
+
+      // Create a download link and trigger download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `meeting_${selectedMeetingId}_overall_stats.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading overall stats:', error);
+      alert('Failed to download overall statistics. Please try again later.');
+    } finally {
+      // Reset the loading state
+      setTimeout(() => {
       setLoadingStates(prev => ({
         ...prev,
-        [role]: false
+          'overall-stats': false
       }));
+      }, 500);
     }
+  };
+
+  // Render meeting details component
+  const renderMeetingDetails = () => {
+    if (!selectedMeeting) return null;
+    
+    const roleType = determineRoleType(selectedMeeting);
+    const formattedTime = formatTime(selectedMeeting.startTime);
+    const formattedDate = formatDate(selectedMeeting.meetingDate || selectedMeeting.date);
+    
+    return (
+      <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1, border: '1px solid #e0e0e0' }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+          Selected Meeting: {selectedMeeting.title}
+        </Typography>
+        
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+          <Chip 
+            label={roleType}
+            size="small"
+            sx={{ 
+              bgcolor: roleType === 'Student' ? '#e3f2fd' : '#e8f5e9',
+              color: roleType === 'Student' ? '#1565c0' : '#2e7d32',
+              fontWeight: 'bold',
+              mr: 2
+            }}
+          />
+          
+          <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
+            <CalendarTodayIcon sx={{ fontSize: 18, mr: 0.5, color: '#666' }} />
+            <Typography variant="body2">{formattedDate}</Typography>
+          </Box>
+          
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <AccessTimeIcon sx={{ fontSize: 18, mr: 0.5, color: '#666' }} />
+            <Typography variant="body2">{formattedTime}</Typography>
+          </Box>
+        </Box>
+      </Box>
+    );
   };
 
   return (
@@ -171,6 +368,65 @@ const ReportTap = ({
       )}
       
       <Grid container spacing={4}>
+        {/* Meeting Selection Section */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 3, mb: 4, borderRadius: 2, boxShadow: 3 }}>
+            <Typography variant="h6" gutterBottom sx={{ mb: 3, color: '#1A2137' }}>
+              Select Meeting
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Please select a meeting first. All reports will only include feedback data from the selected meeting.
+            </Typography>
+            
+            <FormControl fullWidth sx={{ mb: 3 }}>
+              <InputLabel id="meeting-select-label">Select Meeting</InputLabel>
+              <Select
+                labelId="meeting-select-label"
+                id="meeting-select"
+                value={selectedMeetingId}
+                label="Select Meeting"
+                onChange={(e) => setSelectedMeetingId(e.target.value)}
+                disabled={loadingMeetings}
+              >
+                <MenuItem value="">
+                  <em>Select a meeting</em>
+                </MenuItem>
+                {meetings.map((meeting) => (
+                  <MenuItem key={meeting.id} value={meeting.id}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Typography sx={{ fontWeight: 'medium' }}>
+                        {meeting.title} 
+                      </Typography>
+                      <Typography component="span" sx={{ mx: 1 }}>-</Typography>
+                      <Typography component="span" sx={{ 
+                        bgcolor: determineRoleType(meeting) === 'Student' ? '#e3f2fd' : '#e8f5e9',
+                        color: determineRoleType(meeting) === 'Student' ? '#1565c0' : '#2e7d32',
+                        fontWeight: 'bold',
+                        px: 1, 
+                        py: 0.5, 
+                        borderRadius: 1, 
+                        fontSize: '0.75rem'
+                      }}>
+                        {determineRoleType(meeting)}
+                      </Typography>
+                      <Typography component="span" sx={{ mx: 1 }}>-</Typography>
+                      <Typography component="span" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+                        {new Date(meeting.meetingDate || meeting.date).toLocaleDateString()}, {formatTime(meeting.startTime)}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {!selectedMeetingId && (
+              <Alert severity="warning" sx={{ mb: 3 }}>
+                You must select a meeting before downloading any reports. Reports will only contain data from the selected meeting.
+              </Alert>
+            )}
+          </Paper>
+        </Grid>
+
         {/* Analytics Data Export Section */}
         <Grid item xs={12}>
           <Paper sx={{ p: 3, mb: 4, borderRadius: 2, boxShadow: 3 }}>
@@ -178,11 +434,11 @@ const ReportTap = ({
               Export Analytics Data (Excel)
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Export feedback data and statistics from the Analytics section to Excel files for further analysis.
+              Export feedback statistics from the selected meeting to Excel files for further analysis.
             </Typography>
             
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={6}>
+              <Grid item xs={12} sm={6}>
                 <Card sx={{ p: 2, bgcolor: '#f8f9fa', height: '100%' }}>
                   <CardContent>
                     <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>
@@ -194,8 +450,8 @@ const ReportTap = ({
                     <Button
                       variant="contained"
                       startIcon={loadingStates['department-stats'] ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
-                      onClick={() => handleExport('department-stats')}
-                      disabled={loadingStates['department-stats']}
+                      onClick={handleMeetingDepartmentStats}
+                      disabled={!selectedMeetingId || loadingStates['department-stats']}
                       fullWidth
                       sx={{ 
                         bgcolor: '#2196F3', 
@@ -208,7 +464,7 @@ const ReportTap = ({
                 </Card>
               </Grid>
               
-              <Grid item xs={12} sm={6} md={6}>
+              <Grid item xs={12} sm={6}>
                 <Card sx={{ p: 2, bgcolor: '#f8f9fa', height: '100%' }}>
                   <CardContent>
                     <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>
@@ -220,8 +476,8 @@ const ReportTap = ({
                     <Button
                       variant="contained"
                       startIcon={loadingStates['overall-stats'] ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
-                      onClick={() => handleExport('overall-stats')}
-                      disabled={loadingStates['overall-stats']}
+                      onClick={handleMeetingOverallStats}
+                      disabled={!selectedMeetingId || loadingStates['overall-stats']}
                       fullWidth
                       sx={{ 
                         bgcolor: '#9C27B0', 

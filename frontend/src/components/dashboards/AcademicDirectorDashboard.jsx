@@ -496,7 +496,7 @@ const AcademicDirectorDashboard = () => {
   };
 
   // Handle export department stats
-  const handleExportDepartmentStats = async (reportType) => {
+  const handleExportDepartmentStats = async (reportType, meetingId) => {
     try {
       const token = localStorage.getItem('token');
       
@@ -504,30 +504,35 @@ const AcademicDirectorDashboard = () => {
         throw new Error('Authentication token not found');
       }
       
+      // If no meeting ID is provided, show error
+      if (!meetingId) {
+        setSnackbar({
+          open: true,
+          message: "Please select a meeting first",
+          severity: 'warning'
+        });
+        return;
+      }
+      
       let url = '';
       let filename = '';
       
-      switch (reportType) {
-        case 'feedback-all':
-          url = 'http://localhost:8080/api/feedback/excel/all';
-          filename = 'all_feedback_data.xlsx';
-          break;
-          
+      switch (reportType) {        
         case 'department-stats':
-          // If department is selected, use it; otherwise, use overall stats
+          // If department is selected, use it; otherwise, use overall stats for all departments
           if (selectedDepartment) {
-            url = `http://localhost:8080/api/feedback/excel/department/${selectedDepartment}`;
-            filename = `department_${selectedDepartment}_feedback_stats.xlsx`;
+            url = `http://localhost:8080/api/feedback/excel/meeting/${meetingId}/department/${selectedDepartment}`;
+            filename = `meeting_${meetingId}_department_${selectedDepartment}_feedback_stats.xlsx`;
           } else {
-            // If no department is selected, download overall department stats
-            url = 'http://localhost:8080/api/feedback/excel/overall';
-            filename = 'all_departments_stats.xlsx';
+            // If no department is selected, use the overall endpoint but name it as departments stats
+            url = `http://localhost:8080/api/feedback/excel/meeting/${meetingId}/overall`;
+            filename = `meeting_${meetingId}_all_departments_stats.xlsx`;
           }
           break;
           
         case 'overall-stats':
-          url = 'http://localhost:8080/api/feedback/excel/overall';
-          filename = 'overall_feedback_stats.xlsx';
+          url = `http://localhost:8080/api/feedback/excel/meeting/${meetingId}/overall`;
+          filename = `meeting_${meetingId}_overall_feedback_stats.xlsx`;
           break;
           
         default:

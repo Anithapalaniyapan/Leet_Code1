@@ -256,7 +256,7 @@ const ExecutiveDirectorDashboard = () => {
   };
 
   // Handle export to Excel using direct API calls instead of Redux
-  const handleExportToExcel = async (reportType) => {
+  const handleExportToExcel = async (reportType, meetingId) => {
     try {
       setReportDownloadLoading(true);
       const token = localStorage.getItem('token');
@@ -265,13 +265,23 @@ const ExecutiveDirectorDashboard = () => {
         throw new Error('Authentication token not found');
       }
       
+      if (!meetingId) {
+        setSnackbar({
+          open: true,
+          message: "Please select a meeting first",
+          severity: 'warning'
+        });
+        setReportDownloadLoading(false);
+        return;
+      }
+      
       let url = '';
       let filename = '';
       
       switch (reportType) {
         case 'feedback-all':
-          url = 'http://localhost:8080/api/feedback/excel/all';
-          filename = 'all_feedback_data.xlsx';
+          url = `http://localhost:8080/api/feedback/excel/meeting/${meetingId}/all`;
+          filename = `meeting_${meetingId}_all_feedback.xlsx`;
           break;
           
         case 'department-stats':
@@ -286,13 +296,13 @@ const ExecutiveDirectorDashboard = () => {
             return;
           }
           
-          url = `http://localhost:8080/api/feedback/excel/department/${selectedDepartmentForStats}`;
-          filename = `department_${selectedDepartmentForStats}_feedback_stats.xlsx`;
+          url = `http://localhost:8080/api/feedback/excel/meeting/${meetingId}/department/${selectedDepartmentForStats}`;
+          filename = `meeting_${meetingId}_department_${selectedDepartmentForStats}_stats.xlsx`;
           break;
           
         case 'overall-stats':
-          url = 'http://localhost:8080/api/feedback/excel/overall';
-          filename = 'overall_feedback_stats.xlsx';
+          url = `http://localhost:8080/api/feedback/excel/meeting/${meetingId}/overall`;
+          filename = `meeting_${meetingId}_overall_stats.xlsx`;
           break;
           
         default:
@@ -338,7 +348,7 @@ const ExecutiveDirectorDashboard = () => {
   };
 
   // Handle download report using direct API calls instead of Redux
-  const handleDownloadReport = async (role, type) => {
+  const handleDownloadReport = async (role, type, meetingId) => {
     try {
       setReportDownloadLoading(true);
       const token = localStorage.getItem('token');
@@ -347,10 +357,20 @@ const ExecutiveDirectorDashboard = () => {
         throw new Error('No authentication token found');
       }
       
+      if (!meetingId) {
+        setSnackbar({
+          open: true,
+          message: "Please select a meeting first",
+          severity: 'warning'
+        });
+        setReportDownloadLoading(false);
+        return;
+      }
+      
       if (type === 'individual') {
         // Use the new backend API for individual reports
         const response = await axios({
-          url: `http://localhost:8080/api/feedback/excel/individual/${role}`,
+          url: `http://localhost:8080/api/feedback/excel/meeting/${meetingId}/individual/${role}`,
           method: 'GET',
           responseType: 'blob',
           headers: { 'x-access-token': token }
@@ -361,7 +381,7 @@ const ExecutiveDirectorDashboard = () => {
         const downloadUrl = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = downloadUrl;
-        link.setAttribute('download', `${role}_individual_report.xlsx`);
+        link.setAttribute('download', `meeting_${meetingId}_${role}_individual_report.xlsx`);
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -369,13 +389,13 @@ const ExecutiveDirectorDashboard = () => {
         
         setSnackbar({
           open: true,
-          message: `Successfully exported ${role} individual report`,
+          message: `Successfully exported ${role} individual report for the selected meeting`,
           severity: 'success'
         });
       } else {
-        // Original functionality for overall reports
+        // Original functionality for overall reports but with meeting filter
         const response = await axios.get(
-          `http://localhost:8080/api/reports/download?role=${role}&type=${type}`,
+          `http://localhost:8080/api/reports/download?role=${role}&type=${type}&meetingId=${meetingId}`,
           {
             headers: { 'x-access-token': token },
             responseType: 'blob'
@@ -385,7 +405,7 @@ const ExecutiveDirectorDashboard = () => {
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `${role}_${type}_report.pdf`);
+        link.setAttribute('download', `meeting_${meetingId}_${role}_${type}_report.pdf`);
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -433,14 +453,14 @@ const ExecutiveDirectorDashboard = () => {
   // Create a wrapper component for Reports to ensure proper binding of event handlers
   const ReportsWrapper = () => {
     // Make sure we're binding the event handlers correctly
-    const handleExportWrapper = (reportType) => {
-      console.log('Export report called for type:', reportType);
-      handleExportToExcel(reportType);
+    const handleExportWrapper = (reportType, meetingId) => {
+      console.log('Export report called for type:', reportType, 'meeting:', meetingId);
+      handleExportToExcel(reportType, meetingId);
     };
 
-    const handleDownloadWrapper = (role, type) => {
-      console.log('Download report called for role:', role, 'type:', type);
-      handleDownloadReport(role, type);
+    const handleDownloadWrapper = (role, type, meetingId) => {
+      console.log('Download report called for role:', role, 'type:', type, 'meeting:', meetingId);
+      handleDownloadReport(role, type, meetingId);
     };
 
     return (
@@ -448,8 +468,8 @@ const ExecutiveDirectorDashboard = () => {
         departments={departments}
         handleExportToExcel={handleExportWrapper}
         handleDownloadReport={handleDownloadWrapper}
-        loading={false} // Always set to false so it doesn't affect the Reports component
-        selectedDepartmentForStats={selectedDepartmentForStats}
+        selectedDepartmentForStats={selectedDepartmentForStats} 
+        loading={reportDownloadLoading}
       />
     );
   };

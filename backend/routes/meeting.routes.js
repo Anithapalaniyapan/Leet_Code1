@@ -24,6 +24,13 @@ module.exports = function(app) {
     controller.getAllMeetings
   );
 
+  // Get all meetings - alternate endpoint
+  app.get(
+    '/api/meetings/all',
+    [authJwt.verifyToken],
+    controller.getAllMeetings
+  );
+
   // Get meetings specific to the current user based on role, department, and year
   app.get(
     '/api/meetings/user/current',

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
-  Box, Typography, Grid, Paper, Card, CardContent, Button, Alert, CircularProgress
+  Box, Typography, Grid, Paper, Card, CardContent, Button, Alert, CircularProgress,
+  FormControl, InputLabel, Select, MenuItem, Fade
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import { clearReportState } from '../../redux/slices/reportSlice';
+import axios from 'axios';
 
 const Reports = ({ 
   departments,
@@ -15,6 +17,9 @@ const Reports = ({
 }) => {
   const dispatch = useDispatch();
   const { downloadSuccess, generationSuccess, error } = useSelector(state => state.reports);
+  const [meetings, setMeetings] = useState([]);
+  const [selectedMeetingId, setSelectedMeetingId] = useState('');
+  const [loadingMeetings, setLoadingMeetings] = useState(false);
   
   // Track individual loading states for each button
   const [loadingStates, setLoadingStates] = useState({
@@ -24,6 +29,77 @@ const Reports = ({
     'student': false,
     'staff': false
   });
+
+  // Fetch meetings when component mounts
+  useEffect(() => {
+    fetchMeetings();
+  }, []);
+
+  // Helper function to determine role type
+  const determineRoleType = (meeting) => {
+    if (meeting.roleId === 2 || 
+        (meeting.targetRole && meeting.targetRole.toLowerCase().includes('staff')) ||
+        meeting.isStaffMeeting) {
+      return 'Staff';
+    }
+    return 'Student';
+  };
+
+  // Format time to 12-hour (AM/PM) format
+  const formatTime = (timeString) => {
+    if (!timeString) return '';
+    
+    // If the time is already in a Date object or timestamp
+    if (timeString instanceof Date) {
+      return timeString.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+    
+    // If time is in 24-hour format (HH:MM:SS or HH:MM)
+    if (timeString.includes(':')) {
+      const [hours, minutes] = timeString.split(':');
+      const date = new Date();
+      date.setHours(parseInt(hours, 10));
+      date.setMinutes(parseInt(minutes, 10));
+      
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+    
+    return timeString;
+  };
+
+  // Fetch meetings from API
+  const fetchMeetings = async () => {
+    setLoadingMeetings(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:8080/api/meetings', {
+        headers: {
+          'x-access-token': token
+        }
+      });
+      
+      if (response.data && Array.isArray(response.data)) {
+        // Sort meetings by date in descending order (newest first)
+        const sortedMeetings = response.data.sort((a, b) => {
+          return new Date(b.meetingDate || b.date || '') - new Date(a.meetingDate || a.date || '');
+        });
+        setMeetings(sortedMeetings);
+      }
+    } catch (error) {
+      console.error('Error fetching meetings:', error);
+    } finally {
+      setLoadingMeetings(false);
+    }
+  };
+  
   // Debug props
   useEffect(() => {
     console.log('Reports component received props:');
@@ -40,7 +116,12 @@ const Reports = ({
 
   // Create safe handlers that check if functions exist before calling
   const handleExport = (reportType) => {
-    console.log('Export requested for:', reportType);
+    if (!selectedMeetingId) {
+      alert('Please select a meeting first');
+      return;
+    }
+
+    console.log('Export requested for:', reportType, 'meeting:', selectedMeetingId);
     // Set only this button's loading state to true
     setLoadingStates(prev => ({
       ...prev,
@@ -50,7 +131,7 @@ const Reports = ({
     if (typeof handleExportToExcel === 'function') {
       // Create a Promise to handle the loading state
       Promise.resolve()
-        .then(() => handleExportToExcel(reportType))
+        .then(() => handleExportToExcel(reportType, selectedMeetingId))
         .catch(err => console.error(err))
         .finally(() => {
           // Always reset loading state in the component
@@ -73,7 +154,12 @@ const Reports = ({
   };
 
   const handleDownload = (role, type) => {
-    console.log('Download requested for role:', role, 'type:', type);
+    if (!selectedMeetingId) {
+      alert('Please select a meeting first');
+      return;
+    }
+
+    console.log('Download requested for role:', role, 'type:', type, 'meeting:', selectedMeetingId);
     // Set only this button's loading state to true
     setLoadingStates(prev => ({
       ...prev,
@@ -83,7 +169,7 @@ const Reports = ({
     if (typeof handleDownloadReport === 'function') {
       // Create a Promise to handle the loading state
       Promise.resolve()
-        .then(() => handleDownloadReport(role, type))
+        .then(() => handleDownloadReport(role, type, selectedMeetingId))
         .catch(err => console.error(err))
         .finally(() => {
           // Always reset loading state in the component
@@ -124,6 +210,65 @@ const Reports = ({
       )}
       
       <Grid container spacing={4}>
+        {/* Meeting Selection Section */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 3, mb: 4, borderRadius: 2, boxShadow: 3 }}>
+            <Typography variant="h6" gutterBottom sx={{ mb: 3, color: '#1A2137' }}>
+              Select Meeting
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Please select a meeting first. All reports will only include feedback data from the selected meeting.
+            </Typography>
+            
+            <FormControl fullWidth sx={{ mb: 3 }}>
+              <InputLabel id="meeting-select-label">Select Meeting</InputLabel>
+              <Select
+                labelId="meeting-select-label"
+                id="meeting-select"
+                value={selectedMeetingId}
+                label="Select Meeting"
+                onChange={(e) => setSelectedMeetingId(e.target.value)}
+                disabled={loadingMeetings}
+              >
+                <MenuItem value="">
+                  <em>Select a meeting</em>
+                </MenuItem>
+                {meetings.map((meeting) => (
+                  <MenuItem key={meeting.id} value={meeting.id}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Typography sx={{ fontWeight: 'medium' }}>
+                        {meeting.title} 
+                      </Typography>
+                      <Typography component="span" sx={{ mx: 1 }}>-</Typography>
+                      <Typography component="span" sx={{ 
+                        bgcolor: determineRoleType(meeting) === 'Student' ? '#e3f2fd' : '#e8f5e9',
+                        color: determineRoleType(meeting) === 'Student' ? '#1565c0' : '#2e7d32',
+                        fontWeight: 'bold',
+                        px: 1, 
+                        py: 0.5, 
+                        borderRadius: 1, 
+                        fontSize: '0.75rem'
+                      }}>
+                        {determineRoleType(meeting)}
+                      </Typography>
+                      <Typography component="span" sx={{ mx: 1 }}>-</Typography>
+                      <Typography component="span" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+                        {new Date(meeting.meetingDate || meeting.date).toLocaleDateString()}, {formatTime(meeting.startTime)}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {!selectedMeetingId && (
+              <Alert severity="warning" sx={{ mb: 3 }}>
+                You must select a meeting before downloading any reports. Reports will only contain data from the selected meeting.
+              </Alert>
+            )}
+          </Paper>
+        </Grid>
+
         {/* Analytics Data Export Section */}
         <Grid item xs={12}>
           <Paper sx={{ p: 3, mb: 4, borderRadius: 2, boxShadow: 3 }}>
@@ -148,7 +293,7 @@ const Reports = ({
                       variant="contained"
                       startIcon={loadingStates['feedback-all'] ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
                       onClick={() => handleExport('feedback-all')}
-                      disabled={loadingStates['feedback-all']}
+                      disabled={!selectedMeetingId || loadingStates['feedback-all']}
                       fullWidth
                       sx={{ 
                         bgcolor: '#4CAF50', 
@@ -174,7 +319,7 @@ const Reports = ({
                       variant="contained"
                       startIcon={loadingStates['department-stats'] ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
                       onClick={() => handleExport('department-stats')}
-                      disabled={!selectedDepartmentForStats || loadingStates['department-stats']}
+                      disabled={!selectedMeetingId || !selectedDepartmentForStats || loadingStates['department-stats']}
                       fullWidth
                       sx={{ 
                         bgcolor: '#2196F3', 
@@ -205,7 +350,7 @@ const Reports = ({
                       variant="contained"
                       startIcon={loadingStates['overall-stats'] ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
                       onClick={() => handleExport('overall-stats')}
-                      disabled={loadingStates['overall-stats']}
+                      disabled={!selectedMeetingId || loadingStates['overall-stats']}
                       fullWidth
                       sx={{ 
                         bgcolor: '#9C27B0', 
@@ -251,7 +396,7 @@ const Reports = ({
                       variant="contained"
                       startIcon={loadingStates['student'] ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
                       onClick={() => handleDownload('student', 'individual')}
-                      disabled={loadingStates['student']}
+                      disabled={!selectedMeetingId || loadingStates['student']}
                       fullWidth
                       sx={{ 
                         bgcolor: '#FF9800', 
@@ -277,7 +422,7 @@ const Reports = ({
                       variant="contained"
                       startIcon={loadingStates['staff'] ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
                       onClick={() => handleDownload('staff', 'individual')}
-                      disabled={loadingStates['staff']}
+                      disabled={!selectedMeetingId || loadingStates['staff']}
                       fullWidth
                       sx={{ 
                         bgcolor: '#607D8B', 
@@ -289,7 +434,6 @@ const Reports = ({
                   </CardContent>
                 </Card>
               </Grid>
-              
             </Grid>
           </Paper>
         </Grid>
