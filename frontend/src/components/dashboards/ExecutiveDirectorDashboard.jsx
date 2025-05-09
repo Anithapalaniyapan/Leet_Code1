@@ -284,22 +284,6 @@ const ExecutiveDirectorDashboard = () => {
           filename = `meeting_${meetingId}_all_feedback.xlsx`;
           break;
           
-        case 'department-stats':
-          // Ask user to select a department first
-          if (!selectedDepartmentForStats) {
-            setSnackbar({
-              open: true,
-              message: "Please select a department in the Analytics section first",
-              severity: 'warning'
-            });
-            setReportDownloadLoading(false);
-            return;
-          }
-          
-          url = `http://localhost:8080/api/feedback/excel/meeting/${meetingId}/department/${selectedDepartmentForStats}`;
-          filename = `meeting_${meetingId}_department_${selectedDepartmentForStats}_stats.xlsx`;
-          break;
-          
         case 'overall-stats':
           url = `http://localhost:8080/api/feedback/excel/meeting/${meetingId}/overall`;
           filename = `meeting_${meetingId}_overall_stats.xlsx`;

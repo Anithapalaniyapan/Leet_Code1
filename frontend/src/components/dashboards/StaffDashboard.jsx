@@ -346,13 +346,32 @@ const StaffDashboard = () => {
       // Track if this specific API call has already been completed
       let isCallCompleted = false;
       
-      // Add a safety timeout to abort if API never returns
+      // Increase timeout period and implement retry mechanism
+      const maxRetries = 3;
+      const timeoutSeconds = 30; // Increase from 15 to 30 seconds
+      
+      // Function to retry the API call
+      const fetchWithRetry = async (url, options, retriesLeft = maxRetries) => {
+        try {
+          const response = await axios.get(url, options);
+          isCallCompleted = true;
+          return response;
+        } catch (error) {
+          if (retriesLeft > 0 && (error.code === 'ECONNABORTED' || error.message.includes('timeout'))) {
+            console.log(`Retrying questions fetch (${maxRetries - retriesLeft + 1}/${maxRetries})...`);
+            return fetchWithRetry(url, options, retriesLeft - 1);
+          }
+          throw error;
+        }
+      };
+      
+      // Create a timeout promise
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => {
           if (!isCallCompleted) {
-            reject(new Error('Questions fetch timed out after 15 seconds'));
+            reject(new Error(`Questions fetch timed out after ${timeoutSeconds} seconds. Please check your network connection.`));
           }
-        }, 15000);
+        }, timeoutSeconds * 1000);
       });
       
       // Determine the correct endpoint URL based on whether we have a meetingId
@@ -378,7 +397,7 @@ const StaffDashboard = () => {
       console.log('Using questions endpoint:', endpointUrl);
       
       // Do the actual fetch
-      const fetchPromise = axios.get(endpointUrl, {
+      const fetchPromise = fetchWithRetry(endpointUrl, {
         headers: {
           'x-access-token': token,
           'Content-Type': 'application/json'
@@ -387,8 +406,6 @@ const StaffDashboard = () => {
       
       // Race between fetch and timeout
       const response = await Promise.race([fetchPromise, timeoutPromise]);
-      
-      isCallCompleted = true;
       
       console.log('Questions API response:', response.data);
       
@@ -443,26 +460,13 @@ const StaffDashboard = () => {
 
   // Add useEffect to fetch questions when component mounts and activeSection changes
   useEffect(() => {
-    if (activeSection === 'submit-feedback') {
+    // Only fetch questions initially when submit-feedback section becomes active
+    // and we don't have any questions loaded yet
+    if (activeSection === 'submit-feedback' && localQuestions.length === 0 && !questionsLoading && !questionsError) {
       console.log('Submit Feedback section active, fetching questions...');
       fetchQuestions();
     }
-  }, [activeSection]);
-
-  // Update the useEffect to monitor questions state changes
-  useEffect(() => {
-    // Log when questions state changes
-    console.log('Questions state changed in Redux:', questions);
-    console.log('Current local questions state:', localQuestions);
-    
-    // If we're in submit-feedback section but have no questions in either state, try to fetch them
-    if (activeSection === 'submit-feedback' && 
-        localQuestions.length === 0 && 
-        (!questions || questions.length === 0)) {
-      console.log('Active section is submit-feedback but no questions found in any state, fetching...');
-      fetchQuestions();
-    }
-  }, [questions, localQuestions, activeSection]);
+  }, [activeSection]); // Only depend on activeSection changes
 
   // Add a check for department ID on mount
   useEffect(() => {
@@ -790,10 +794,20 @@ const StaffDashboard = () => {
 
   // Handle fetching questions for a specific meeting
   const handleFetchQuestionsByMeeting = (meetingId) => {
-    // First switch to the feedback section
+    // First set the meeting as active
+    const meeting = [...(meetings.currentMeetings || []), 
+                    ...(meetings.futureMeetings || []), 
+                    ...(meetings.pastMeetings || [])].find(m => m.id === meetingId);
+    
+    if (meeting) {
+      setActiveMeeting(meeting);
+      setShouldShowQuestions(true);
+    }
+    
+    // Switch to the feedback section
     dispatch(setActiveSection('submit-feedback'));
     
-    // Then fetch questions for this meeting after a short delay
+    // Fetch questions for this meeting with a short delay to ensure section change completes
     setTimeout(() => {
       fetchQuestions(meetingId);
     }, 100);

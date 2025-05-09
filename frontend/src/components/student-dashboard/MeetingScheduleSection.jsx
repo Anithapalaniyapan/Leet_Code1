@@ -102,6 +102,33 @@ const MeetingScheduleSection = ({ meetings, loading, handleFetchQuestionsByMeeti
     return minsUntilMeeting <= 5;
   };
   
+  // New function to check if a meeting should be displayed
+  // Hides meetings that ended more than 10 minutes ago
+  const shouldDisplayMeeting = (meeting) => {
+    if (!meeting) return false;
+    
+    const now = new Date();
+    
+    if (meeting.endTime) {
+      const meetingDate = meeting.date || meeting.meetingDate;
+      const endTime = meeting.endTime;
+      const meetingEndDateTime = new Date(`${meetingDate}T${endTime}`);
+      
+      if (!isNaN(meetingEndDateTime.getTime())) {
+        // Calculate minutes since the meeting ended
+        const minsSinceEnd = Math.floor((now - meetingEndDateTime) / 60000);
+        
+        // If meeting ended more than 10 minutes ago, don't display it
+        if (minsSinceEnd > 10) {
+          return false;
+        }
+      }
+    }
+    
+    // Display all other meetings
+    return true;
+  };
+  
   // New function to get feedback button text based on meeting time
   const getFeedbackButtonText = (meeting) => {
     if (!meeting) return "Feedback";
@@ -119,6 +146,9 @@ const MeetingScheduleSection = ({ meetings, loading, handleFetchQuestionsByMeeti
       return "View Meeting";
     }
   };
+
+  // Filter meetings to only show those that should be displayed
+  const displayableMeetings = meetings ? meetings.filter(shouldDisplayMeeting) : [];
 
   if (loading) {
     return <Box sx={{ display: 'none' }}></Box>;
@@ -157,7 +187,7 @@ const MeetingScheduleSection = ({ meetings, loading, handleFetchQuestionsByMeeti
           Feedback questions become available 5 minutes before each meeting starts
         </Typography>
         
-        {meetings && meetings.length > 0 ? (
+        {displayableMeetings.length > 0 ? (
           <TableContainer sx={{ 
             '& .MuiTableCell-root': { 
               borderColor: '#f0f0f0'
@@ -182,7 +212,7 @@ const MeetingScheduleSection = ({ meetings, loading, handleFetchQuestionsByMeeti
                 </TableRow>
               </TableHead>
               <TableBody>
-                {meetings.map((meeting) => {
+                {displayableMeetings.map((meeting) => {
                   // Normalize meeting data
                   const meetingDate = meeting.meetingDate || meeting.date;
                   const formattedDate = meetingDate 

@@ -26,7 +26,6 @@ const ReportTap = ({
   
   // Track individual loading states for each button
   const [loadingStates, setLoadingStates] = useState({
-    'department-stats': false,
     'overall-stats': false
   });
 
@@ -159,62 +158,6 @@ const ReportTap = ({
       dispatch(clearReportState());
     };
   }, [dispatch]);
-
-  // Handle meeting-specific department stats
-  const handleMeetingDepartmentStats = async () => {
-    if (!selectedMeetingId) {
-      alert('Please select a meeting first');
-      return;
-    }
-
-    // Set the loading state for department stats button
-    setLoadingStates(prev => ({
-      ...prev,
-      'department-stats': true
-    }));
-
-    try {
-      const token = localStorage.getItem('token');
-      
-      // If no department selected, use the overall departments stats endpoint
-      const url = selectedDepartmentForStats
-        ? `http://localhost:8080/api/feedback/excel/meeting/${selectedMeetingId}/department/${selectedDepartmentForStats}`
-        : `http://localhost:8080/api/feedback/excel/meeting/${selectedMeetingId}/overall`;
-        
-      const filename = selectedDepartmentForStats
-        ? `meeting_${selectedMeetingId}_department_${selectedDepartmentForStats}_stats.xlsx`
-        : `meeting_${selectedMeetingId}_all_departments_stats.xlsx`;
-      
-      const response = await axios({
-        method: 'GET',
-        url: url,
-        responseType: 'blob', // Important for file downloads
-        headers: {
-          'x-access-token': token
-        }
-      });
-
-      // Create a download link and trigger download
-      const downloadUrl = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error) {
-      console.error('Error downloading department stats:', error);
-      alert('Failed to download department statistics. Please try again later.');
-    } finally {
-      // Reset the loading state
-      setTimeout(() => {
-        setLoadingStates(prev => ({
-          ...prev,
-          'department-stats': false
-        }));
-      }, 500);
-    }
-  };
 
   // Handle meeting-specific overall stats
   const handleMeetingOverallStats = async () => {
@@ -438,33 +381,7 @@ const ReportTap = ({
             </Typography>
             
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <Card sx={{ p: 2, bgcolor: '#f8f9fa', height: '100%' }}>
-                  <CardContent>
-                    <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>
-                      Department Stats
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      Export department-by-department performance statistics to Excel
-                    </Typography>
-                    <Button
-                      variant="contained"
-                      startIcon={loadingStates['department-stats'] ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
-                      onClick={handleMeetingDepartmentStats}
-                      disabled={!selectedMeetingId || loadingStates['department-stats']}
-                      fullWidth
-                      sx={{ 
-                        bgcolor: '#2196F3', 
-                        '&:hover': { bgcolor: '#1565C0' }
-                      }}
-                    >
-                      {loadingStates['department-stats'] ? 'Downloading...' : 'Export Department Stats'}
-                    </Button>
-                  </CardContent>
-                </Card>
-              </Grid>
-              
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12}>
                 <Card sx={{ p: 2, bgcolor: '#f8f9fa', height: '100%' }}>
                   <CardContent>
                     <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>

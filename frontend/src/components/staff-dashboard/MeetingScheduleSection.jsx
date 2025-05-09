@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box, 
   Typography, 
@@ -20,6 +20,7 @@ import FeedbackIcon from '@mui/icons-material/Feedback';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EventIcon from '@mui/icons-material/Event';
 import InfoIcon from '@mui/icons-material/Info';
+import HistoryIcon from '@mui/icons-material/History';
 
 const MeetingScheduleSection = ({ 
   meetings = { pastMeetings: [], currentMeetings: [], futureMeetings: [] },
@@ -28,6 +29,12 @@ const MeetingScheduleSection = ({
   handleFetchQuestionsByMeeting, 
   handleRefreshMeetings
 }) => {
+  const [meetingsData, setMeetingsData] = useState({
+    pastMeetings: [],
+    currentMeetings: [],
+    futureMeetings: []
+  });
+
   // Format time with AM/PM
   const formatTimeWithAMPM = (timeString) => {
     if (!timeString) return '';
@@ -90,17 +97,180 @@ const MeetingScheduleSection = ({
     return departmentMap[id] || `Department ${id}`;
   };
 
+  // Filter meetings to hide those that ended more than 10 minutes ago
+  const shouldDisplayMeeting = (meeting) => {
+    const now = new Date();
+    let meetingDate = meeting.date || meeting.meetingDate;
+    const meetingTime = meeting.endTime || '00:00';
+    
+    // Handle different date formats
+    if (typeof meetingDate === 'string' && meetingDate.includes('T')) {
+      meetingDate = meetingDate.split('T')[0];
+    }
+    
+    // Create date objects for meeting end time
+    const meetingEndDateTime = new Date(`${meetingDate}T${meetingTime}`);
+    
+    // Add 10 minutes to meeting end time
+    const meetingEndPlusTenMinutes = new Date(meetingEndDateTime.getTime() + 10 * 60000);
+    
+    // Return true if now is before meeting end time + 10 minutes
+    return now < meetingEndPlusTenMinutes;
+  };
+
+  useEffect(() => {
+    if (meetings) {
+      // Filter out meetings that ended more than 10 minutes ago
+      const filteredPastMeetings = meetings.pastMeetings?.filter(shouldDisplayMeeting) || [];
+      const filteredCurrentMeetings = meetings.currentMeetings || [];
+      const filteredFutureMeetings = meetings.futureMeetings || [];
+      
+      setMeetingsData({
+        pastMeetings: filteredPastMeetings,
+        currentMeetings: filteredCurrentMeetings,
+        futureMeetings: filteredFutureMeetings
+      });
+    }
+  }, [meetings]);
+
+  // Filter meetings to only show those that should be displayed
+  const filteredMeetings = {
+    pastMeetings: meetings.pastMeetings.filter(shouldDisplayMeeting),
+    currentMeetings: meetings.currentMeetings.filter(shouldDisplayMeeting),
+    futureMeetings: meetings.futureMeetings.filter(shouldDisplayMeeting)
+  };
+
   // Combine all meetings for display
   const allMeetings = [
-    ...(meetings.currentMeetings || []),
-    ...(meetings.futureMeetings || []),
-    ...(meetings.pastMeetings || [])
+    ...(filteredMeetings.currentMeetings || []),
+    ...(filteredMeetings.futureMeetings || []),
+    ...(filteredMeetings.pastMeetings || [])
   ];
   
   // Remove duplicates
   const uniqueMeetings = allMeetings.filter((meeting, index, self) =>
     index === self.findIndex((m) => m.id === meeting.id)
   );
+
+  // Render meeting card with Give Feedback button
+  const renderMeetingCard = (meeting, isFirstCard = false) => {
+    const meetingDate = new Date(meeting.date || meeting.meetingDate);
+    const formattedDate = meetingDate.toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+
+    // Check if meeting is active (current date is on or after meeting date)
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const meetingDay = new Date(meetingDate.getFullYear(), meetingDate.getMonth(), meetingDate.getDate());
+    const isPastOrCurrentMeeting = meetingDay <= today;
+    
+    // Meeting is within feedback submission window if it's a past or current meeting
+    const isWithinFeedbackWindow = isPastOrCurrentMeeting;
+
+    return (
+      <Paper
+        elevation={isFirstCard ? 6 : 2}
+        sx={{
+          p: 3,
+          mb: 3,
+          borderRadius: 2,
+          position: 'relative',
+          overflow: 'hidden',
+          transition: 'transform 0.2s, box-shadow 0.2s',
+          '&:hover': {
+            transform: 'translateY(-5px)',
+            boxShadow: '0 8px 20px rgba(0,0,0,0.1)'
+          },
+          ...(isFirstCard ? {
+            background: 'linear-gradient(135deg, #f0f7ff 0%, #e4f1ff 100%)',
+            border: '1px solid #c0d8ff'
+          } : {})
+        }}
+      >
+        {/* Meeting content */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+          <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1A2137' }}>
+            {meeting.title}
+          </Typography>
+          <Typography variant="body2" sx={{ 
+            color: 'white', 
+            bgcolor: isFirstCard ? '#1976d2' : '#546e7a',
+            px: 1.5, 
+            py: 0.5, 
+            borderRadius: 4,
+            display: 'inline-block',
+            fontSize: '0.8rem',
+            fontWeight: 'medium'
+          }}>
+            {isFirstCard ? 'NEXT' : isPastOrCurrentMeeting ? 'PAST' : 'UPCOMING'}
+          </Typography>
+        </Box>
+        
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', mb: 2 }}>
+          <Box sx={{ mb: { xs: 2, sm: 0 } }}>
+            <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
+              <strong>Date:</strong> {formattedDate}
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
+              <strong>Time:</strong> {formatTimeWithAMPM(meeting.startTime)} - {formatTimeWithAMPM(meeting.endTime)}
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#666' }}>
+              <strong>Location:</strong> {meeting.location || 'Online'}
+            </Typography>
+          </Box>
+          
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            justifyContent: 'center', 
+            alignItems: { xs: 'flex-start', sm: 'flex-end' } 
+          }}>
+            {isWithinFeedbackWindow && (
+              <Button
+                variant="contained"
+                color="primary"
+                size="small"
+                startIcon={<FeedbackIcon />}
+                onClick={() => handleFetchQuestionsByMeeting(meeting.id)}
+                sx={{ 
+                  mt: { xs: 2, sm: 0 }, 
+                  mb: 1,
+                  bgcolor: '#1976d2',
+                  '&:hover': { bgcolor: '#1565c0' },
+                  fontSize: '0.8rem'
+                }}
+              >
+                Give Feedback
+              </Button>
+            )}
+            
+            <Typography variant="body2" sx={{ 
+              color: '#777', 
+              fontSize: '0.8rem', 
+              fontStyle: 'italic',
+              mt: 0.5 
+            }}>
+              {meeting.department ? `${meeting.department}` : ''}
+              {meeting.department && meeting.year ? ' • ' : ''}
+              {meeting.year ? `Year ${meeting.year}` : ''}
+            </Typography>
+          </Box>
+        </Box>
+        
+        {meeting.description && (
+          <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #eee' }}>
+            <Typography variant="body2" sx={{ color: '#666' }}>
+              {meeting.description}
+            </Typography>
+          </Box>
+        )}
+      </Paper>
+    );
+  };
 
   // When meetings are loading
   if (loading) {
@@ -198,207 +368,140 @@ const MeetingScheduleSection = ({
         >
           Refresh Meetings
         </Button>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', mt: 2, color: '#666' }}>
-            <InfoIcon fontSize="small" sx={{ mr: 1 }} />
-            <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
-              Check back later or contact the Academic Director for more information
-            </Typography>
-          </Box>
         </Card>
       </Paper>
     );
   }
 
-  // Main content - meetings available
   return (
-    <Paper sx={{ 
-      p: 4, 
-      borderRadius: 2, 
-      background: 'linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)',
-      boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-      position: 'relative',
-      overflow: 'hidden'
-    }}>
-      {/* Header with underline */}
-      <Box sx={{ position: 'relative', mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h5" sx={{ 
+    <Box sx={{ mb: 4 }}>
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          mb: 4
+        }}
+      >
+        <Typography 
+          variant="h5" 
+          sx={{ 
           fontWeight: 'bold', 
           color: '#1A2137',
           position: 'relative',
           '&:after': {
             content: '""',
             position: 'absolute',
-            bottom: -8,
+              bottom: -10,
             left: 0,
-            width: 40,
-            height: 3,
+              width: 60,
+              height: 4,
             backgroundColor: '#FFD700',
-            borderRadius: 1.5
+              borderRadius: 2
           }
-        }}>
+          }}
+        >
           Meeting Schedule
         </Typography>
         
         <Button
           variant="outlined"
           color="primary"
-          size="small"
           onClick={handleRefreshMeetings}
           startIcon={<RefreshIcon />}
           sx={{
             borderRadius: 2,
             textTransform: 'none',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+            fontWeight: 'medium'
           }}
         >
           Refresh
         </Button>
       </Box>
       
-      {/* Table of meetings */}
-      <TableContainer 
-        component={Paper} 
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : error ? (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {error}
+        </Alert>
+      ) : (
+        <>
+          {/* Today's and Upcoming Meetings */}
+          <Box sx={{ mb: 4 }}>
+            <Typography 
+              variant="h6" 
         sx={{ 
-          boxShadow: 'none',
-          backgroundColor: 'transparent',
-          backgroundImage: 'none',
-          mb: 3,
-          '& .MuiTableCell-root': {
-            borderBottom: '1px solid rgba(224, 224, 224, 0.5)'
-          },
-          '& .MuiTableHead-root': {
-            backgroundColor: 'rgba(26, 33, 55, 0.03)'
-          }
-        }}
-      >
-        <Table sx={{ minWidth: 650 }}>
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 'bold', color: '#1A2137' }}>Meeting Title</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', color: '#1A2137' }}>Date</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', color: '#1A2137' }}>Time</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', color: '#1A2137' }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', color: '#1A2137' }}>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {uniqueMeetings.map((meeting) => {
-              // Calculate if meeting is past, ongoing, or upcoming
-              const now = new Date();
-              let meetingDate = meeting.date || meeting.meetingDate;
-              const meetingTime = meeting.startTime || '00:00';
-              
-              // If meetingDate is an ISO string (contains 'T'), extract just the date part
-              if (typeof meetingDate === 'string' && meetingDate.includes('T')) {
-                meetingDate = meetingDate.split('T')[0]; // Extract just the YYYY-MM-DD part
-              }
-              
-              const meetingDateTime = new Date(`${meetingDate}T${meetingTime}`);
-              const endTime = meeting.endTime || '23:59';
-              const meetingEndDateTime = new Date(`${meetingDate}T${endTime}`);
-              
-              let status = 'upcoming';
-              if (now > meetingEndDateTime) {
-                status = 'past';
-              } else if (now >= meetingDateTime && now <= meetingEndDateTime) {
-                status = 'ongoing';
-              }
-              
-              return (
-                <TableRow 
-                  key={meeting.id}
-                  sx={{ 
-                    '&:hover': { 
-                      backgroundColor: 'rgba(0,0,0,0.03)',
-                      transition: 'background-color 0.2s ease'
-                    },
-                  }}
-                >
-                  <TableCell sx={{ 
-                    color: '#333',
-                    fontWeight: status === 'ongoing' ? 'bold' : 'normal'
-                  }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <EventIcon sx={{ 
-                        mr: 1, 
-                        color: status === 'ongoing' ? '#1976d2' : 
-                               status === 'past' ? '#757575' : '#4caf50',
-                        fontSize: '1.2rem'
-                      }} />
-                      {meeting.title || "Scheduled Meeting"}
+                mb: 2, 
+                color: '#1976d2',
+                fontWeight: 'medium',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+            >
+              <EventIcon sx={{ mr: 1 }} />
+              Current & Upcoming Meetings
+            </Typography>
+            
+            {meetingsData.currentMeetings.length === 0 && meetingsData.futureMeetings.length === 0 ? (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                No current or upcoming meetings scheduled.
+              </Alert>
+            ) : (
+              <Box>
+                {/* Current Meetings */}
+                {meetingsData.currentMeetings.map((meeting, index) => (
+                  <Box key={meeting.id || index}>
+                    {renderMeetingCard(meeting, index === 0)}
+                  </Box>
+                ))}
+                
+                {/* Future Meetings */}
+                {meetingsData.futureMeetings.map((meeting, index) => (
+                  <Box key={meeting.id || index}>
+                    {renderMeetingCard(meeting, 
+                      meetingsData.currentMeetings.length === 0 && index === 0)}
+                  </Box>
+                ))}
+              </Box>
+            )}
                     </Box>
-                  </TableCell>
-                  
-                  <TableCell>{formatDate(meetingDate)}</TableCell>
-                  
-                  <TableCell>
-                    {formatTimeWithAMPM(meetingTime)}
-                    {meeting.endTime && ` - ${formatTimeWithAMPM(meeting.endTime)}`}
-                  </TableCell>
-                  
-                  <TableCell>
-                    <Chip 
-                      label={
-                        status === 'past' ? 'Completed' : 
-                        status === 'ongoing' ? 'Ongoing' : 'Upcoming'
-                      }
-                      size="small"
+
+          {/* Past Meetings */}
+          <Box>
+            <Typography 
+              variant="h6" 
                       sx={{ 
-                        backgroundColor: 
-                          status === 'past' ? 'rgba(117, 117, 117, 0.1)' : 
-                          status === 'ongoing' ? 'rgba(25, 118, 210, 0.1)' : 'rgba(76, 175, 80, 0.1)',
-                        color: 
-                          status === 'past' ? '#757575' : 
-                          status === 'ongoing' ? '#1976d2' : '#4caf50',
+                mb: 2, 
+                color: '#546e7a',
                         fontWeight: 'medium',
-                        borderRadius: 1
-                      }}
-                    />
-                  </TableCell>
-                  
-                  <TableCell>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      color="primary"
-                      onClick={() => handleFetchQuestionsByMeeting(meeting.id)}
-                      startIcon={<FeedbackIcon />}
-                      disabled={status === 'upcoming' && (meetingDateTime - now) > 300000} // Disable if more than 5 minutes away
-                      sx={{ 
-                        borderRadius: 1,
-                        textTransform: 'none',
-                        fontSize: '0.8rem',
-                        whiteSpace: 'nowrap',
-                        minWidth: '120px'
-                      }}
-                    >
-                      {status === 'past' ? 'View Feedback' : 'Give Feedback'}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      
-      {/* Tip section */}
-      <Card sx={{ 
-        p: 2, 
-        borderRadius: 2, 
-        bgcolor: 'rgba(255, 215, 0, 0.05)', 
-        border: '1px dashed rgba(255, 215, 0, 0.3)',
-        display: 'flex',
-        alignItems: 'center',
-        my: 2
-      }}>
-        <InfoIcon sx={{ color: '#FFD700', mr: 2 }} />
-        <Typography variant="body2" sx={{ color: '#666' }}>
-          Feedback for upcoming meetings will be available 5 minutes before the scheduled start time.
-        </Typography>
-      </Card>
-    </Paper>
+                display: 'flex',
+                alignItems: 'center'
+              }}
+            >
+              <HistoryIcon sx={{ mr: 1 }} />
+              Past Meetings
+            </Typography>
+            
+            {meetingsData.pastMeetings.length === 0 ? (
+              <Alert severity="info">
+                No past meetings to display.
+              </Alert>
+            ) : (
+              <Box>
+                {meetingsData.pastMeetings.map((meeting, index) => (
+                  <Box key={meeting.id || index}>
+                    {renderMeetingCard(meeting)}
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
+        </>
+      )}
+    </Box>
   );
 };
 

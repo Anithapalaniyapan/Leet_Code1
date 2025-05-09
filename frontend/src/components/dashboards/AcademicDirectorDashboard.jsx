@@ -518,21 +518,9 @@ const AcademicDirectorDashboard = () => {
       let filename = '';
       
       switch (reportType) {        
-        case 'department-stats':
-          // If department is selected, use it; otherwise, use overall stats for all departments
-          if (selectedDepartment) {
-            url = `http://localhost:8080/api/feedback/excel/meeting/${meetingId}/department/${selectedDepartment}`;
-            filename = `meeting_${meetingId}_department_${selectedDepartment}_feedback_stats.xlsx`;
-          } else {
-            // If no department is selected, use the overall endpoint but name it as departments stats
-            url = `http://localhost:8080/api/feedback/excel/meeting/${meetingId}/overall`;
-            filename = `meeting_${meetingId}_all_departments_stats.xlsx`;
-          }
-          break;
-          
         case 'overall-stats':
           url = `http://localhost:8080/api/feedback/excel/meeting/${meetingId}/overall`;
-          filename = `meeting_${meetingId}_overall_feedback_stats.xlsx`;
+          filename = `meeting_${meetingId}_overall_stats.xlsx`;
           break;
           
         default:

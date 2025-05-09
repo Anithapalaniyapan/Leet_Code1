@@ -28,6 +28,7 @@ const AnalyticsTap = () => {
     overallRatingDistribution: {},
     departmentStats: []
   });
+  const [previousMeetingStats, setPreviousMeetingStats] = useState(null);
   const [selectedDepartmentForStats, setSelectedDepartmentForStats] = useState('');
   const [selectedQuestionId, setSelectedQuestionId] = useState('');
   const [allQuestions, setAllQuestions] = useState([]);
@@ -594,7 +595,7 @@ const AnalyticsTap = () => {
                       >
                         <TitleIcon sx={{ mr: 2 }} />
                         <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                          {selectedMeeting.title || "jjjjjjjj"}
+                          {selectedMeeting.title || "Class Committee Meeting Meeting"}
                         </Typography>
                       </Box>
 

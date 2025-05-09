@@ -2334,3 +2334,364 @@ exports.generateMeetingIndividualReportExcel = async (req, res) => {
     res.status(500).send({ message: error.message });
   }
 };
+
+// Get all questions with ratings for a specific meeting
+exports.getQuestionsWithRatingsForMeeting = async (req, res) => {
+  try {
+    const meetingId = req.params.meetingId;
+    
+    if (!meetingId) {
+      return res.status(400).send({ message: 'Meeting ID is required' });
+    }
+
+    console.log(`Getting questions with ratings for meeting ID: ${meetingId}`);
+    
+    try {
+      // First check if meeting exists
+      const meeting = await db.meeting.findByPk(meetingId);
+      if (!meeting) {
+        return res.status(404).send({ message: 'Meeting not found' });
+      }
+  
+      // Use a simpler query to reduce complexity and potential errors
+      const feedbacks = await Feedback.findAll({
+        where: { meetingId: meetingId },
+        include: [
+          {
+            model: Question,
+            as: 'question',
+            attributes: ['id', 'text', 'departmentId'],
+            include: [{
+              model: Department,
+              as: 'department',
+              attributes: ['id', 'name']
+            }]
+          },
+          {
+            model: User,
+            as: 'user',
+            attributes: ['id', 'username', 'fullName', 'email', 'year', 'departmentId'],
+            include: [{
+              model: Department,
+              as: 'department',
+              attributes: ['id', 'name']
+            }]
+          }
+        ]
+      });
+      
+      console.log(`Found ${feedbacks.length} feedback entries for meeting ID: ${meetingId}`);
+      
+      // Group feedback by question ID
+      const questions = {};
+      
+      // Process each feedback entry with defensive programming
+      for (const feedback of feedbacks) {
+        try {
+          if (!feedback || !feedback.question || !feedback.question.id) {
+            console.log('Skipping feedback without question:', feedback ? feedback.id : 'undefined');
+            continue;
+          }
+          
+          const questionId = feedback.question.id;
+          
+          // Initialize question in map if not already present
+          if (!questions[questionId]) {
+            questions[questionId] = {
+              id: questionId,
+              text: feedback.question.text || 'Unknown Question',
+              departmentId: feedback.question.departmentId,
+              departmentName: feedback.question.department ? feedback.question.department.name : 'Unknown Department',
+              responses: [],
+              totalRating: 0,
+              totalResponses: 0,
+              averageRating: 0
+            };
+          }
+          
+          // Create a simplified response object to avoid potential errors
+          const responseObj = {
+            id: feedback.id,
+            rating: parseFloat(feedback.rating) || 0,
+            notes: feedback.notes || '',
+            userId: feedback.userId,
+            userName: 'Anonymous'
+          };
+          
+          // Safely add user information if available
+          if (feedback.user) {
+            responseObj.userName = feedback.user.fullName || feedback.user.username || 'Anonymous';
+            responseObj.userEmail = feedback.user.email;
+            responseObj.year = feedback.user.year;
+            responseObj.departmentId = feedback.user.departmentId;
+            responseObj.departmentName = feedback.user.department ? feedback.user.department.name : undefined;
+            
+            // Determine role based on username patterns
+            if (feedback.user.username) {
+              if (feedback.user.username.match(/^E\d/) || feedback.user.username.startsWith('ST')) {
+                responseObj.role = 'student';
+              } else if (feedback.user.username.match(/^S\d/) || feedback.user.username.includes('staff')) {
+                responseObj.role = 'staff';
+              } else {
+                responseObj.role = 'unknown';
+              }
+            }
+          }
+          
+          // Add the response to the question
+          questions[questionId].responses.push(responseObj);
+          
+          // Update totals
+          questions[questionId].totalRating += responseObj.rating;
+          questions[questionId].totalResponses++;
+        } catch (feedbackError) {
+          console.error('Error processing feedback item:', feedbackError);
+          // Continue processing other feedback items instead of failing completely
+          continue;
+        }
+      }
+      
+      // Calculate averages and format array
+      const result = Object.values(questions).map(question => {
+        // Calculate average if totalResponses > 0
+        if (question.totalResponses > 0) {
+          question.averageRating = question.totalRating / question.totalResponses;
+        }
+        return question;
+      });
+      
+      // Sort by average rating (highest first)
+      result.sort((a, b) => b.averageRating - a.averageRating);
+      
+      console.log(`Successfully processed ${result.length} questions with ratings`);
+      return res.status(200).send(result);
+    } catch (queryError) {
+      console.error('Database query error:', queryError);
+      return res.status(500).send({
+        message: 'Error retrieving data from database',
+        error: queryError.message
+      });
+    }
+  } catch (error) {
+    console.error('Uncaught error in getQuestionsWithRatingsForMeeting:', error);
+    return res.status(500).send({
+      message: 'Internal server error',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
+// Get meeting stats
+exports.getMeetingStats = async (req, res) => {
+  try {
+    const meetingId = req.params.meetingId;
+    
+    if (!meetingId) {
+      return res.status(400).send({ message: 'Meeting ID is required' });
+    }
+    
+    // Check if meeting exists
+    const meeting = await db.meeting.findByPk(meetingId);
+    if (!meeting) {
+      return res.status(404).send({ message: 'Meeting not found' });
+    }
+    
+    // Get all feedback for this meeting
+    const feedback = await Feedback.findAll({
+      where: { meetingId: meetingId },
+      include: [
+        {
+          model: Question,
+          as: 'question',
+          attributes: ['id', 'text'],
+          include: [{
+            model: Department,
+            as: 'department',
+            attributes: ['id', 'name']
+          }]
+        }
+      ]
+    });
+    
+    // Calculate basic statistics
+    const totalResponses = feedback.length;
+    let totalRating = 0;
+    const ratingDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    
+    feedback.forEach(item => {
+      totalRating += item.rating;
+      ratingDistribution[item.rating] = (ratingDistribution[item.rating] || 0) + 1;
+    });
+    
+    const averageRating = totalResponses > 0 ? (totalRating / totalResponses).toFixed(2) : 0;
+    
+    res.status(200).send({
+      meetingId,
+      meetingTitle: meeting.title,
+      totalResponses,
+      averageRating,
+      ratingDistribution
+    });
+  } catch (error) {
+    console.error('Error getting meeting stats:', error);
+    res.status(500).send({ message: 'Error retrieving meeting stats', error: error.message });
+  }
+};
+
+// Get detailed meeting stats including department and role breakdowns
+exports.getMeetingDetailedStats = async (req, res) => {
+  try {
+    const meetingId = req.params.meetingId;
+    
+    if (!meetingId) {
+      return res.status(400).send({ message: 'Meeting ID is required' });
+    }
+    
+    // Check if meeting exists
+    const meeting = await db.meeting.findByPk(meetingId);
+    if (!meeting) {
+      return res.status(404).send({ message: 'Meeting not found' });
+    }
+    
+    // Get all detailed feedback for this meeting
+    const feedbackData = await Feedback.findAll({
+      where: { meetingId: meetingId },
+      include: [
+        {
+          model: Question,
+          as: 'question',
+          include: [{
+            model: Department,
+            as: 'department',
+            attributes: ['id', 'name']
+          }]
+        },
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'username', 'fullName', 'year', 'departmentId'],
+          include: [
+            {
+              model: Department,
+              as: 'department',
+              attributes: ['id', 'name']
+            },
+            {
+              model: db.role,
+              as: 'roles',
+              attributes: ['id', 'name']
+            }
+          ]
+        }
+      ]
+    });
+    
+    // Get all departments
+    const departments = await Department.findAll({
+      where: { active: true }
+    });
+    
+    // Initialize statistics objects
+    const departmentStats = [];
+    let totalResponses = 0;
+    let totalRating = 0;
+    const overallRatingDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    
+    // Role-based statistics
+    const roleStats = {
+      student: { count: 0, totalRating: 0, ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } },
+      staff: { count: 0, totalRating: 0, ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } }
+    };
+    
+    // Process all feedback data
+    feedbackData.forEach(feedback => {
+      // Overall stats
+      totalResponses++;
+      totalRating += feedback.rating;
+      overallRatingDistribution[feedback.rating] = (overallRatingDistribution[feedback.rating] || 0) + 1;
+      
+      // Process role-based stats
+      const user = feedback.user;
+      let roleCategory = 'other';
+      
+      if (user) {
+        // Try to determine role
+        if (user.roles && Array.isArray(user.roles) && user.roles.length > 0) {
+          const roleName = user.roles[0].name?.toLowerCase();
+          if (roleName === 'student') roleCategory = 'student';
+          else if (roleName === 'staff') roleCategory = 'staff';
+        }
+        
+        // If no role found from roles array, try username pattern
+        if (roleCategory === 'other' && user.username) {
+          if (user.username.match(/^E\d/) || user.username.startsWith('ST')) {
+            roleCategory = 'student';
+          } else if (user.username.match(/^S\d/) || user.username.includes('staff')) {
+            roleCategory = 'staff';
+          }
+        }
+      }
+      
+      // Update role stats if it's student or staff
+      if (roleCategory === 'student' || roleCategory === 'staff') {
+        roleStats[roleCategory].count++;
+        roleStats[roleCategory].totalRating += feedback.rating;
+        roleStats[roleCategory].ratingDistribution[feedback.rating]++;
+      }
+      
+      // Process department stats
+      const departmentId = feedback.question?.departmentId;
+      if (departmentId) {
+        let deptStat = departmentStats.find(d => d.departmentId === departmentId);
+        
+        if (!deptStat) {
+          const departmentName = feedback.question?.department?.name || 
+                              departments.find(d => d.id === departmentId)?.name || 
+                              'Unknown Department';
+          
+          deptStat = {
+            departmentId,
+            departmentName,
+            responses: 0,
+            totalRating: 0,
+            ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+          };
+          departmentStats.push(deptStat);
+        }
+        
+        deptStat.responses++;
+        deptStat.totalRating += feedback.rating;
+        deptStat.ratingDistribution[feedback.rating]++;
+      }
+    });
+    
+    // Calculate averages
+    const overallAverageRating = totalResponses > 0 ? (totalRating / totalResponses).toFixed(2) : 0;
+    
+    // Calculate department averages
+    departmentStats.forEach(dept => {
+      dept.averageRating = dept.responses > 0 ? (dept.totalRating / dept.responses).toFixed(2) : 0;
+    });
+    
+    // Calculate role averages
+    Object.keys(roleStats).forEach(role => {
+      roleStats[role].averageRating = roleStats[role].count > 0 
+        ? (roleStats[role].totalRating / roleStats[role].count).toFixed(2)
+        : 0;
+    });
+    
+    res.status(200).send({
+      meetingId,
+      meetingTitle: meeting.title,
+      totalResponses,
+      overallAverageRating,
+      overallRatingDistribution,
+      departmentStats,
+      roleStats
+    });
+  } catch (error) {
+    console.error('Error getting detailed meeting stats:', error);
+    res.status(500).send({ message: 'Error retrieving detailed meeting stats', error: error.message });
+  }
+};

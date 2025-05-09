@@ -66,6 +66,13 @@ router.get(
   feedbackController.getFeedbackByMeetingAndUser
 );
 
+// Get meeting stats
+router.get('/stats/meeting/:meetingId', [authJwt.verifyToken], feedbackController.getMeetingStats);
+router.get('/stats/meeting/:meetingId/detailed', [authJwt.verifyToken], feedbackController.getMeetingDetailedStats);
+
+// Get questions with ratings for a meeting
+router.get('/meeting/:meetingId/questions/ratings', [authJwt.verifyToken], feedbackController.getQuestionsWithRatingsForMeeting);
+
 // EXCEL REPORT ENDPOINTS
 
 // Generate Excel report for all feedback (academic director and executive director only)

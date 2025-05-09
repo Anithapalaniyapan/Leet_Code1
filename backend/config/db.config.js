@@ -5,9 +5,16 @@ module.exports = {
   DB: process.env.DB_NAME || "feedback_management",
   dialect: "mysql",
   pool: {
-    max: 5,
-    min: 0,
-    acquire: 30000,
-    idle: 10000
-  }
+    max: 10,
+    min: 2,
+    acquire: 60000,
+    idle: 20000
+  },
+  dialectOptions: {
+    connectTimeout: 60000,
+    options: {
+      requestTimeout: 60000
+    }
+  },
+  logging: process.env.NODE_ENV !== 'production' ? console.log : false
 };

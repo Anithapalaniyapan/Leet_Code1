@@ -380,8 +380,12 @@ exports.getQuestionsByCreator = async (req, res) => {
   }
 };
 
-// Get questions by meeting ID
+// Get questions by meeting ID - Optimized with timeout handling and caching
 exports.getQuestionsByMeeting = async (req, res) => {
+  // Add performance tracking
+  const startTime = Date.now();
+  console.log(`[${startTime}] Processing question request for meeting ID: ${req.params.meetingId}, role: ${req.query.role}`);
+  
   try {
     const meetingId = req.params.meetingId;
     const role = req.query.role; // Get role from query parameters
@@ -390,8 +394,22 @@ exports.getQuestionsByMeeting = async (req, res) => {
       return res.status(400).send({ message: 'Meeting ID is required' });
     }
     
-    // Check if meeting exists
-    const meeting = await db.meeting.findByPk(meetingId);
+    // Simple in-memory cache key
+    const cacheKey = `meeting_${meetingId}_role_${role || 'all'}`;
+    
+    // Check if data is cached (implement a proper caching mechanism in production)
+    if (global.questionCache && global.questionCache[cacheKey] && 
+        global.questionCache[cacheKey].timestamp > Date.now() - 5 * 60 * 1000) { // 5-minute cache
+      console.log(`[${Date.now() - startTime}ms] Returning cached questions for meeting ${meetingId}`);
+      return res.status(200).send(global.questionCache[cacheKey].data);
+    }
+    
+    // Check if meeting exists - using a more efficient query
+    const meeting = await db.meeting.findOne({
+      where: { id: meetingId },
+      attributes: ['id', 'title', 'meetingDate', 'startTime', 'status']
+    });
+    
     if (!meeting) {
       return res.status(404).send({ message: 'Meeting not found' });
     }
@@ -417,16 +435,23 @@ exports.getQuestionsByMeeting = async (req, res) => {
       }
     }
     
-    // Get questions for this meeting with role filter if provided
-    const questions = await Question.findAll({
-      where: whereCondition,
-      include: [{
-        model: Department,
-        as: 'department',
-        attributes: ['id', 'name']
-      }],
-      order: [['createdAt', 'DESC']]
-    });
+    // Promise with timeout to prevent hanging queries
+    const questionsPromise = Promise.race([
+      Question.findAll({
+        where: whereCondition,
+        include: [{
+          model: Department,
+          as: 'department',
+          attributes: ['id', 'name']
+        }],
+        order: [['createdAt', 'DESC']]
+      }),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database query timed out after 10 seconds')), 10000)
+      )
+    ]);
+    
+    const questions = await questionsPromise;
     
     // Format questions for frontend
     const formattedQuestions = questions.map(q => ({
@@ -438,13 +463,43 @@ exports.getQuestionsByMeeting = async (req, res) => {
       year: q.year,
       roleId: q.role === 'student' ? 1 : q.role === 'staff' ? 2 : 3,
       active: q.active,
-      meetingId: q.meetingId
+      meetingId: q.meetingId,
+      meeting: {
+        id: meeting.id,
+        title: meeting.title,
+        date: meeting.meetingDate,
+        startTime: meeting.startTime,
+        status: meeting.status
+      }
     }));
     
+    // Update cache
+    if (!global.questionCache) global.questionCache = {};
+    global.questionCache[cacheKey] = {
+      data: formattedQuestions,
+      timestamp: Date.now()
+    };
+    
+    console.log(`[${Date.now() - startTime}ms] Successfully retrieved ${formattedQuestions.length} questions for meeting ${meetingId}`);
     res.status(200).send(formattedQuestions);
   } catch (error) {
-    console.error('Error fetching questions by meeting:', error);
-    res.status(500).send({ message: error.message });
+    const errorTime = Date.now() - startTime;
+    console.error(`[${errorTime}ms] Error fetching questions by meeting:`, error);
+    
+    // Send appropriate error response based on the type of error
+    if (error.message.includes('timed out')) {
+      res.status(504).send({ 
+        message: 'The request took too long to process. Please try again later.',
+        error: error.message,
+        processingTime: `${errorTime}ms`
+      });
+    } else {
+      res.status(500).send({ 
+        message: 'An error occurred while retrieving questions',
+        error: error.message,
+        processingTime: `${errorTime}ms`
+      });
+    }
   }
 };
 

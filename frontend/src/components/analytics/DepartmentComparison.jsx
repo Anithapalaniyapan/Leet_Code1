@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Paper, Typography, Grid, Card, Tooltip, Chip } from '@mui/material';
 import StarRating from './StarRating';
 
-const DepartmentComparison = ({ feedbackStats }) => {
+const DepartmentComparison = ({ departmentStats = [], loading = false }) => {
   // Define rating colors for consistent styling
   const ratingColors = {
     5: '#4CAF50', // Green
@@ -165,7 +165,10 @@ const DepartmentComparison = ({ feedbackStats }) => {
 
   // Function to render a horizontal stacked bar chart for department comparison
   const renderDepartmentStackedBarChart = () => {
-    const departmentsWithData = feedbackStats.departmentStats?.filter(dept => dept.responses > 0) || [];
+    // Check if departmentStats is an array and has items
+    const departmentsWithData = Array.isArray(departmentStats) 
+      ? departmentStats.filter(dept => dept && dept.responses > 0) 
+      : [];
     
     if (departmentsWithData.length === 0) {
       return (
@@ -279,25 +282,33 @@ const DepartmentComparison = ({ feedbackStats }) => {
     );
   };
 
+  // Main render
   return (
-    <Paper sx={{ p: 4, mb: 4, borderRadius: 2, boxShadow: 3 }}>
-      <Typography variant="h5" sx={{ mb: 4, fontWeight: 'bold' }}>Department Performance</Typography>
-      
-      {/* Enhanced visualization with stacked bar charts */}
-      {renderDepartmentStackedBarChart()}
-      
-      <Box sx={{ my: 4, borderTop: '1px dashed #e0e0e0', pt: 4 }} />
-      
-      <Typography variant="h6" sx={{ mb: 3, fontWeight: 'bold' }}>Department Details</Typography>
-      
-      <Grid container spacing={3}>
-        {feedbackStats.departmentStats?.map((dept) => (
-          <Grid item xs={12} md={6} key={dept.departmentId}>
-            {renderDepartmentDashboardCard(dept)}
-          </Grid>
-        ))}
-      </Grid>
-    </Paper>
+    <Box>
+      {loading ? (
+        <Box sx={{ p: 3, textAlign: 'center' }}>
+          <Typography>Loading department comparison data...</Typography>
+        </Box>
+      ) : Array.isArray(departmentStats) && departmentStats.length > 0 ? (
+        <Box>
+          {/* Render individual department cards */}
+          {departmentStats.map(dept => (
+            <Box key={dept.departmentId} sx={{ mb: 3 }}>
+              {renderDepartmentDashboardCard(dept)}
+            </Box>
+          ))}
+          
+          {/* Render bar chart */}
+          {renderDepartmentStackedBarChart()}
+        </Box>
+      ) : (
+        <Box sx={{ p: 3, textAlign: 'center', bgcolor: '#f5f5f5', borderRadius: 2 }}>
+          <Typography variant="body1" color="text.secondary">
+            No department data available. Please select a different meeting.
+          </Typography>
+        </Box>
+      )}
+    </Box>
   );
 };
 

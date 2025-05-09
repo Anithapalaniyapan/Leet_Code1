@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Paper, Button, Rating, Alert, CircularProgress, Modal, Fade, TextField, LinearProgress } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
-import { CountdownCircleTimer } from 'react-countdown-circle-timer';
 
 const FeedbackSection = ({ 
   questions, 
@@ -307,7 +306,7 @@ const FeedbackSection = ({
     return (
       <Paper sx={{ 
         p: 4, 
-        borderRadius: 0,
+        borderRadius: 2,
         background: 'linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)',
         display: 'flex',
         flexDirection: 'column',
@@ -319,23 +318,23 @@ const FeedbackSection = ({
         <Box sx={{ 
           width: 140, 
           height: 140, 
-          mb: 3, 
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          mb: 3,
           borderRadius: '8px',
           background: 'linear-gradient(135deg, #004777 0%, #1A2137 100%)',
+          display: 'flex',
+          alignItems: 'center', 
+          justifyContent: 'center',
           boxShadow: '0 10px 20px rgba(26, 33, 55, 0.2)',
         }}>
-          <Typography variant="h1" sx={{ color: 'white', fontWeight: 'bold' }}>
+          <Typography variant="h2" sx={{ color: 'white', fontWeight: 'bold' }}>
             ✓
           </Typography>
         </Box>
         <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#1A2137', mb: 2 }}>
-          Thank you for your feedback!
+          Feedback Submitted Successfully!
         </Typography>
         <Typography variant="body1" sx={{ color: '#555', maxWidth: '600px', mx: 'auto' }}>
-          Your feedback has been submitted successfully. We'll notify you when new meetings are scheduled.
+          Thank you for your participation. We value your input!
         </Typography>
       </Paper>
     );
@@ -558,20 +557,7 @@ const FeedbackSection = ({
       boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
       border: '1px solid #e0e0e0'
     }}>
-      {/* Background decoration */}
-      <Box sx={{ 
-        position: 'absolute', 
-        right: 20, 
-        top: 20, 
-        width: '180px',
-        height: '180px',
-        opacity: 0.15,
-        zIndex: 0,
-        background: 'linear-gradient(135deg, #004777 0%, #1A2137 100%)',
-        borderRadius: '8px',
-        transform: 'rotate(15deg)'
-      }} />
-      
+     
       <Box sx={{ position: 'relative', zIndex: 1 }}>
         <Typography variant="h5" sx={{ 
           fontWeight: 'bold', 

@@ -310,37 +310,6 @@ const Reports = ({
                 <Card sx={{ p: 2, bgcolor: '#f8f9fa', height: '100%' }}>
                   <CardContent>
                     <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>
-                      Department Stats
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      Export department-by-department performance statistics to Excel
-                    </Typography>
-                    <Button
-                      variant="contained"
-                      startIcon={loadingStates['department-stats'] ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
-                      onClick={() => handleExport('department-stats')}
-                      disabled={!selectedMeetingId || !selectedDepartmentForStats || loadingStates['department-stats']}
-                      fullWidth
-                      sx={{ 
-                        bgcolor: '#2196F3', 
-                        '&:hover': { bgcolor: '#1565C0' }
-                      }}
-                    >
-                      {loadingStates['department-stats'] ? 'Downloading...' : 'Export Department Stats'}
-                    </Button>
-                    {!selectedDepartmentForStats && (
-                      <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
-                        Select a department from the dropdown
-                      </Typography>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
-              
-              <Grid item xs={12} sm={6} md={4}>
-                <Card sx={{ p: 2, bgcolor: '#f8f9fa', height: '100%' }}>
-                  <CardContent>
-                    <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>
                       Overall Summary
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

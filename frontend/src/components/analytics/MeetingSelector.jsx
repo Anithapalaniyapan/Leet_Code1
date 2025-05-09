@@ -249,7 +249,7 @@ const MeetingSelector = ({
           disabled={loading}
           displayEmpty
           renderValue={(selected) => {
-            if (!selected) return <Typography component="span">Select a meeting</Typography>;
+            if (!selected) return <Typography component="span">Select Meeting</Typography>;
             const meeting = meetings.find(m => m.id == selected);
             if (!meeting) return <Typography component="span">Select a meeting</Typography>;
             return (

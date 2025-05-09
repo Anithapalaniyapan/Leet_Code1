@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Box, Typography, Paper, Button, Rating, Alert, CircularProgress, Modal, Fade, TextField, LinearProgress } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
-import { CountdownCircleTimer } from 'react-countdown-circle-timer';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import SuccessModal from './modals/SuccessModal';
 
 const FeedbackSection = ({ 
   questions, 
@@ -42,7 +42,10 @@ const FeedbackSection = ({
 
   // Effect for polling to check if we're within 5 minutes of the meeting
   useEffect(() => {
-    if (activeMeeting) {
+    // Don't set up polling if feedback has already been submitted
+    if (activeMeeting && !feedbackSubmitted && !pollingInterval) {
+      console.log('Setting up polling interval for meeting time checks');
+      
       // Start checking every 10 seconds if we're within 5 minutes of the meeting
       const interval = setInterval(() => {
         // Handle different date formats - regular date or ISO string
@@ -159,12 +162,29 @@ const FeedbackSection = ({
       
       // Cleanup interval on unmount
       return () => {
+        console.log('Cleaning up polling interval');
         if (interval) {
           clearInterval(interval);
+          setPollingInterval(null);
         }
       };
     }
-  }, [activeMeeting, shouldShowQuestions, initialCountdownComplete, showThreeSecondCountdown]);
+    
+    // If feedback is submitted, clear any existing polling interval
+    if (feedbackSubmitted && pollingInterval) {
+      console.log('Feedback submitted, clearing polling interval');
+      clearInterval(pollingInterval);
+      setPollingInterval(null);
+    }
+    
+    // Cleanup function
+    return () => {
+      if (pollingInterval) {
+        console.log('Component unmounting, cleaning up polling interval');
+        clearInterval(pollingInterval);
+      }
+    };
+  }, [activeMeeting, shouldShowQuestions, initialCountdownComplete, showThreeSecondCountdown, feedbackSubmitted]);
 
   // Effect to start countdown when questions should be shown initially
   useEffect(() => {
@@ -242,8 +262,17 @@ const FeedbackSection = ({
     setInitialCountdownComplete(true);
   };
 
-  // Handle form submission with success modal
+  // Handle the actual feedback submission
   const onSubmitFeedback = async () => {
+    // Check if all questions have ratings first
+    const hasEmptyRatings = Object.values(localRatings).some(rating => rating === 0);
+      
+    if (hasEmptyRatings) {
+      // Using Alert component directly rather than snackbar
+      alert('Please rate all questions before submitting');
+      return;
+    }
+    
     // Prevent multiple submission attempts
     if (apiRequestInProgress) {
       console.log('Submit feedback request already in progress, ignoring duplicate');
@@ -328,6 +357,7 @@ const FeedbackSection = ({
       }, 3000);
     } catch (error) {
       console.error('Error submitting feedback:', error);
+      alert('Failed to submit feedback. Please try again.');
     } finally {
       setApiRequestInProgress(false);
     }
@@ -340,15 +370,6 @@ const FeedbackSection = ({
       [questionId]: value
     }));
   };
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-      }
-    };
-  }, [pollingInterval]);
 
   // Log state for debugging
   useEffect(() => {
@@ -732,19 +753,6 @@ const FeedbackSection = ({
       overflow: 'hidden',
       boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
     }}>
-      {/* Background decoration */}
-      <Box sx={{ 
-        position: 'absolute', 
-        right: 20, 
-        top: 20, 
-        width: '180px',
-        height: '180px',
-        opacity: 0.15,
-        zIndex: 0,
-        background: 'linear-gradient(135deg, #004777 0%, #1A2137 100%)',
-        borderRadius: '50%'
-      }} />
-      
       <Typography variant="h5" sx={{ 
         fontWeight: 'bold', 
         mb: 3, 
@@ -954,105 +962,10 @@ const FeedbackSection = ({
       </Modal>
       
       {/* Success Modal */}
-      <Modal 
+      <SuccessModal
         open={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
-        closeAfterTransition
-      >
-        <Fade in={showSuccessModal}>
-          <Paper sx={{ 
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: 400,
-            bgcolor: 'background.paper',
-            borderRadius: 2,
-            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
-            p: 4,
-            textAlign: 'center',
-            background: 'linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)',
-            backdropFilter: 'blur(10px)'
-          }}>
-            <Box sx={{ 
-              width: 140, 
-              height: 140, 
-              mx: 'auto', 
-              mb: 3, 
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '8px',
-              background: 'linear-gradient(135deg, #004777 0%, #1A2137 100%)',
-              boxShadow: '0 10px 20px rgba(26, 33, 55, 0.2)',
-              animation: 'fadeInScale 0.6s ease-out',
-              '@keyframes fadeInScale': {
-                '0%': {
-                  transform: 'scale(0.5)',
-                  opacity: 0
-                },
-                '100%': {
-                  transform: 'scale(1)',
-                  opacity: 1
-                }
-              }
-            }}>
-              <Typography variant="h1" sx={{ 
-                color: 'white', 
-                fontWeight: 'bold',
-                fontSize: '5rem'
-              }}>
-                ✓
-              </Typography>
-            </Box>
-            <Typography variant="h5" sx={{ 
-              mb: 2, 
-              fontWeight: 'bold', 
-              color: '#2E7D32',
-              animation: 'fadeIn 0.6s ease-out 0.3s both',
-              '@keyframes fadeIn': {
-                '0%': {
-                  transform: 'translateY(20px)',
-                  opacity: 0
-                },
-                '100%': {
-                  transform: 'translateY(0)',
-                  opacity: 1
-                }
-              }
-            }}>
-              Thank you for your feedback!
-            </Typography>
-            <Typography variant="body1" sx={{ 
-              mb: 3, 
-              color: '#555',
-              animation: 'fadeIn 0.6s ease-out 0.6s both'
-            }}>
-              Let's wait for the next meeting, dear professor. You will be notified when new meetings are scheduled for your department.
-            </Typography>
-            
-            <Button 
-              variant="contained" 
-              color="primary" 
-              onClick={() => setShowSuccessModal(false)}
-              sx={{ 
-                px: 4, 
-                py: 1.5,
-                borderRadius: 2,
-                background: 'linear-gradient(45deg, #1A237E 30%, #283593 90%)',
-                animation: 'fadeIn 0.6s ease-out 0.9s both',
-                transition: 'all 0.3s',
-                '&:hover': {
-                  transform: 'translateY(-3px)',
-                  boxShadow: '0 10px 20px rgba(26, 33, 55, 0.3)'
-                }
-              }}
-            >
-              Close
-            </Button>
-          </Paper>
-        </Fade>
-      </Modal>
+      />
     </Paper>
   );
 };
