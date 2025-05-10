@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Box, Typography, Paper, Button, Rating, Alert, CircularProgress, Modal, Fade, TextField, LinearProgress } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import SuccessModal from './modals/SuccessModal';
 
 const FeedbackSection = ({ 
   questions, 
@@ -23,7 +22,6 @@ const FeedbackSection = ({
   const [notes, setNotes] = useState({});
   
   // State for displaying UI elements
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showCountdown, setShowCountdown] = useState(false);
   const [countdown, setCountdown] = useState(3);
   const [countdownProgress, setCountdownProgress] = useState(100);
@@ -347,14 +345,8 @@ const FeedbackSection = ({
     try {
       await handleSubmitFeedback(notes);
       
-      // Show success modal
-      setShowSuccessModal(true);
+      // No longer showing the modal - the parent dashboard will show the persistent alert
       setFeedbackSubmitted(true);
-      
-      // Auto-close modal after 3 seconds
-      setTimeout(() => {
-        setShowSuccessModal(false);
-      }, 3000);
     } catch (error) {
       console.error('Error submitting feedback:', error);
       alert('Failed to submit feedback. Please try again.');
@@ -960,12 +952,6 @@ const FeedbackSection = ({
           </Box>
         </Fade>
       </Modal>
-      
-      {/* Success Modal */}
-      <SuccessModal
-        open={showSuccessModal}
-        onClose={() => setShowSuccessModal(false)}
-      />
     </Paper>
   );
 };

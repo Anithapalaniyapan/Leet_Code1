@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import API from '../../api/axiosConfig';
 import { useNavigate } from 'react-router-dom';
-import { Box, Snackbar, Alert, CircularProgress, Fade, Typography } from '@mui/material';
+import { Box, Snackbar, Alert, CircularProgress, Fade, Typography, Button } from '@mui/material';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 // Import our new components
 import Sidebar from '../student-dashboard/Sidebar';
@@ -36,6 +37,10 @@ const StudentDashboard = () => {
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [nextMeetingTimer, setNextMeetingTimer] = useState(null);
   const [shouldShowQuestions, setShouldShowQuestions] = useState(false);
+  const [feedbackAlert, setFeedbackAlert] = useState({
+    open: false,
+    message: 'Feedback submitted successfully! Thank you for your participation. We value your input!'
+  });
   
   // Add ref for the polling interval
   const pollingIntervalRef = useRef(null);
@@ -697,11 +702,17 @@ const StudentDashboard = () => {
           }
         }
 
-        // Show success message
+        // Show success message with the snackbar
         setSnackbar({
           open: true,
           message: 'Feedback submitted successfully',
           severity: 'success'
+        });
+
+        // Also show persistent feedback alert
+        setFeedbackAlert({
+          open: true,
+          message: 'Feedback submitted successfully! Thank you for your participation. We value your input!'
         });
 
         // Reset ratings
@@ -857,6 +868,11 @@ const StudentDashboard = () => {
     fetchQuestions(meetingId);
   };
 
+  // Add function to handle closing the feedback alert
+  const handleCloseFeedbackAlert = () => {
+    setFeedbackAlert({ ...feedbackAlert, open: false });
+  };
+
   return (
     <Box sx={{ display: 'flex' }}>
       <Sidebar 
@@ -984,13 +1000,14 @@ const StudentDashboard = () => {
               questions={questions}
               handleRatingChange={handleRatingChange}
               handleSubmitFeedback={handleSubmitFeedback}
-            ratings={ratings}
+              ratings={ratings}
               loading={loading}
               questionsLoading={questionsLoading}
               questionsError={questionsError}
               activeMeeting={activeMeeting}
               shouldShowQuestions={shouldShowQuestions}
-            feedbackSubmitted={feedbackSubmitted}
+              feedbackSubmitted={feedbackSubmitted}
+              setFeedbackSubmitted={setFeedbackSubmitted}
             />
           )}
           
@@ -1003,12 +1020,56 @@ const StudentDashboard = () => {
             />
           )}
 
+      {/* Add the persistent feedback alert */}
+      {feedbackAlert.open && (
+        <Alert 
+          severity="success"
+          icon={<CheckCircleIcon fontSize="large" />}
+          sx={{ 
+            position: 'fixed', 
+            bottom: 24, 
+            left: { xs: '50%', sm: 'calc(240px + 50%)' }, 
+            transform: 'translateX(-50%)',
+            zIndex: 9999,
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
+            minWidth: '300px',
+            maxWidth: { xs: '90%', sm: '400px' },
+            py: 2,
+            fontSize: '1rem',
+            fontWeight: 'medium',
+            border: '1px solid #c8e6c9',
+            bgcolor: 'rgba(255, 255, 255, 0.97)'
+          }}
+          action={
+            <Button 
+              onClick={handleCloseFeedbackAlert} 
+              color="inherit" 
+              size="small" 
+              variant="outlined"
+              sx={{ 
+                fontWeight: 'bold', 
+                minWidth: '60px',
+                ml: 2
+              }}
+            >
+              OK
+            </Button>
+          }
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', pr: 2 }}>
+            <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+              {feedbackAlert.message}
+            </Typography>
+          </Box>
+        </Alert>
+      )}
+      
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
       >
-          <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
           {snackbar.message}
         </Alert>
       </Snackbar>

@@ -438,13 +438,13 @@ exports.getQuestionsByMeeting = async (req, res) => {
     // Promise with timeout to prevent hanging queries
     const questionsPromise = Promise.race([
       Question.findAll({
-        where: whereCondition,
-        include: [{
-          model: Department,
-          as: 'department',
-          attributes: ['id', 'name']
-        }],
-        order: [['createdAt', 'DESC']]
+      where: whereCondition,
+      include: [{
+        model: Department,
+        as: 'department',
+        attributes: ['id', 'name']
+      }],
+      order: [['createdAt', 'DESC']]
       }),
       new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Database query timed out after 10 seconds')), 10000)

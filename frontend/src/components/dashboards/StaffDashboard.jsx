@@ -128,7 +128,7 @@ const StaffDashboard = () => {
   // New state for persistent feedback submission alert
   const [feedbackAlert, setFeedbackAlert] = useState({
     open: false,
-    message: 'Feedback submitted successfully'
+    message: 'Feedback submitted successfully! Thank you for your participation. We value your input!'
   });
 
   // Ref for the polling interval
@@ -303,7 +303,7 @@ const StaffDashboard = () => {
       // Show persistent alert instead of temporary snackbar
       setFeedbackAlert({
         open: true,
-        message: 'Feedback submitted successfully'
+        message: 'Feedback submitted successfully! Thank you for your participation. We value your input!'
       });
       
       // Also set feedbackSubmitted to true when Redux state indicates success
@@ -597,7 +597,7 @@ const StaffDashboard = () => {
         // Show permanent feedback alert
         setFeedbackAlert({
           open: true,
-          message: 'Feedback submitted successfully'
+          message: 'Feedback submitted successfully! Thank you for your participation. We value your input!'
         });
         
         return true;
@@ -1104,10 +1104,25 @@ const StaffDashboard = () => {
               border: '1px solid #c8e6c9',
               bgcolor: 'rgba(255, 255, 255, 0.97)'
             }}
+            action={
+              <Button 
+                onClick={handleCloseFeedbackAlert} 
+                color="inherit" 
+                size="small" 
+                variant="outlined"
+                sx={{ 
+                  fontWeight: 'bold', 
+                  minWidth: '60px',
+                  ml: 2
+                }}
+              >
+                OK
+              </Button>
+            }
           >
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', pr: 2 }}>
               <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-                Feedback submitted successfully
+                {feedbackAlert.message}
               </Typography>
       </Box>
           </Alert>
