@@ -15,6 +15,8 @@ import TitleIcon from '@mui/icons-material/Title';
 // Import all the analytics components
 import FeedbackOverview from '../../analytics/FeedbackOverview';
 import MeetingSelector from '../../analytics/MeetingSelector';
+// Import the new QuestionAnalysis component
+import QuestionAnalysis from '../../analytics/QuestionAnalysis';
 
 const AnalyticsTap = () => {
   const [departments, setDepartments] = useState([]);
@@ -457,329 +459,61 @@ const AnalyticsTap = () => {
             left: 0,
             right: 0,
             bottom: 0,
+            bgcolor: 'rgba(255, 255, 255, 0.7)',
             display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 9999,
-            backgroundColor: 'rgba(25, 118, 210, 0.05)',
-            backdropFilter: 'blur(5px)'
+            alignItems: 'center',
+            zIndex: 10
           }}>
-            <CircularProgress size={60} thickness={4} sx={{ color: '#1A2137', mb: 3 }} />
-            <Box sx={{
-              mt: 4,
-              textAlign: 'center',
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
-              border: '1px solid rgba(0, 0, 0, 0.05)'
-            }}>
-              <Typography 
-                variant="h6" 
-                sx={{ 
-                  fontWeight: 600, 
-                  background: 'linear-gradient(45deg, #3f51b5 30%, #00acc1 90%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  mb: 1
-                }}
-              >
-                Analytics Dashboard
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                Loading analytics data...
-              </Typography>
-            </Box>
+            <CircularProgress />
           </Box>
         </Fade>
       )}
       
-      {!feedbackLoading && (
+      {/* Meeting Selector Section */}
+      <Paper sx={{ p: 3, mb: 4, borderRadius: 2, boxShadow: 2 }}>
+        <Typography variant="h6" gutterBottom sx={{ mb: 3, color: '#1A2137', fontWeight: 'bold' }}>
+          Select Meeting for Analytics
+        </Typography>
+        <MeetingSelector 
+          meetings={meetings}
+          selectedMeetingId={selectedMeetingId}
+          onMeetingChange={setSelectedMeetingId}
+          loading={meetingsLoading}
+        />
+      </Paper>
+      
+      {/* Dashboard Overview */}
+      {renderDashboardOverview()}
+      
+      {/* Only show analytics if a meeting is selected */}
+      {selectedMeetingId ? (
         <>
-          {/* Meeting Selector - Now First */}
-          <Paper sx={{ p: 3, mb: 4, borderRadius: 2, boxShadow: 3 }}>
-            <Typography variant="h6" gutterBottom sx={{ mb: 3, color: '#1A2137', fontWeight: 'bold' }}>
-              Analyze Participation and Feedback
-            </Typography>
-            <MeetingSelector
-              meetings={meetings}
-              selectedMeetingId={selectedMeetingId}
-              onMeetingChange={setSelectedMeetingId}
-              loading={meetingsLoading}
+          {/* Feedback Overview */}
+          <FeedbackOverview 
+            feedbackStats={feedbackStats}
+            previousMeetingStats={previousMeetingStats}
+          />
+          
+          {/* Question Analysis Section */}
+          <Paper sx={{ p: 3, mb: 4, borderRadius: 2, boxShadow: 2 }}>
+            <QuestionAnalysis 
+              meetingId={selectedMeetingId} 
+              allQuestions={allQuestions}
             />
           </Paper>
           
-          {/* Selected Meeting Statistics - Now Separated */}
-          {selectedMeetingId && (
-            <Paper sx={{ p: 3, mb: 4, borderRadius: 2, boxShadow: 3 }}>
-              <Typography variant="h6" gutterBottom sx={{ mb: 3, color: '#1A2137', fontWeight: 'bold' }}>
-                Selected Meeting Statistics: {meetings.find(m => m.id == selectedMeetingId)?.title}
-              </Typography>
-              
-              {/* Meeting details display section */}
-              {(() => {
-                const selectedMeeting = meetings.find(m => m.id == selectedMeetingId);
-                if (!selectedMeeting) return null;
-                
-                // Format date
-                const meetingDate = new Date(selectedMeeting.meetingDate || selectedMeeting.date);
-                const formattedDate = meetingDate.toLocaleDateString('en-US', {
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric'
-                });
-                
-                // Format times to AM/PM
-                const formatTimeToAMPM = (timeString) => {
-                  if (!timeString) return '';
-                  
-                  // If it's already a Date object
-                  if (timeString instanceof Date) {
-                    return timeString.toLocaleTimeString('en-US', {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                      hour12: true
-                    });
-                  }
-                  
-                  // If it's a string in 24-hour format
-                  if (typeof timeString === 'string' && timeString.includes(':')) {
-                    const [hours, minutes] = timeString.split(':');
-                    const date = new Date();
-                    date.setHours(parseInt(hours, 10));
-                    date.setMinutes(parseInt(minutes, 10));
-                    
-                    return date.toLocaleTimeString('en-US', {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                      hour12: true
-                    });
-                  }
-                  
-                  return timeString;
-                };
-                
-                // Determine role type
-                const roleType = selectedMeeting.isStaffMeeting ? 'Staff' :
-                                 selectedMeeting.roleId === 2 ? 'Staff' : 'Student';
-                
-                const startTime = formatTimeToAMPM(selectedMeeting.startTime);
-                const endTime = formatTimeToAMPM(selectedMeeting.endTime);
-                const meetingTime = `${startTime} - ${endTime}`;
-                
-                const department = selectedMeeting.department?.name || 
-                                  (selectedMeeting.departmentId ? 
-                                    departments.find(d => d.id === selectedMeeting.departmentId)?.name : 
-                                    "All Departments");
-                
-                return (
-                  <Box sx={{ mb: 4 }}>
-                    <Card 
-                      elevation={3} 
-                      sx={{ 
-                        borderRadius: '12px', 
-                        overflow: 'hidden',
-                        mb: 3,
-                        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
-                      }}
-                    >
-                      <Box 
-                        sx={{ 
-                          bgcolor: '#3f51b5', 
-                          color: 'white', 
-                          p: 2,
-                          display: 'flex',
-                          alignItems: 'center'
-                        }}
-                      >
-                        <TitleIcon sx={{ mr: 2 }} />
-                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                          {selectedMeeting.title || "Class Committee Meeting Meeting"}
-                        </Typography>
-                      </Box>
 
-                      <CardContent>
-                        <Grid container spacing={3}>
-                          <Grid item xs={12} md={6}>
-                            <Card 
-                              sx={{ 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                p: 2, 
-                                boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                                height: '100%',
-                                bgcolor: 'rgba(255,255,255,0.8)'
-                              }}
-                            >
-                              <CalendarTodayIcon sx={{ fontSize: 32, color: '#3f51b5', mr: 2 }} />
-                              <Box>
-                                <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 1, textTransform: 'uppercase' }}>
-                                  Meeting Date
-                                </Typography>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                                  {formattedDate}
-                                </Typography>
-                              </Box>
-                            </Card>
-                          </Grid>
-
-                          <Grid item xs={12} md={6}>
-                            <Card 
-                              sx={{ 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                p: 2, 
-                                boxShadow: '0 4px 6px rgba(0,0,0,0.1)', 
-                                height: '100%',
-                                bgcolor: 'rgba(255,255,255,0.8)'
-                              }}
-                            >
-                              <AccessTimeIcon sx={{ fontSize: 32, color: '#43a047', mr: 2 }} />
-                              <Box>
-                                <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 1, textTransform: 'uppercase' }}>
-                                  Meeting Time
-                                </Typography>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                                  {meetingTime}
-                                </Typography>
-                              </Box>
-                            </Card>
-                          </Grid>
-
-                          <Grid item xs={12} md={4}>
-                            <Card 
-                              sx={{ 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                p: 2, 
-                                boxShadow: '0 4px 6px rgba(0,0,0,0.1)', 
-                                height: '100%',
-                                bgcolor: 'rgba(255,255,255,0.8)'
-                              }}
-                            >
-                              <PersonIcon sx={{ fontSize: 32, color: '#1565c0', mr: 2 }} />
-                              <Box>
-                                <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 1, textTransform: 'uppercase' }}>
-                                  Participant Role
-                                </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                                  <Chip 
-                                    label={roleType}
-                                    size="small"
-                                    sx={{ 
-                                      bgcolor: roleType === 'Student' ? '#e3f2fd' : '#e8f5e9',
-                                      color: roleType === 'Student' ? '#1565c0' : '#2e7d32',
-                                      fontWeight: 'bold',
-                                      mr: 1
-                                    }}
-                                  />
-                                  {roleType === 'Student' && selectedMeeting.year && (
-                                    <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                                      Year {selectedMeeting.year}
-                                    </Typography>
-                                  )}
-                                </Box>
-                              </Box>
-                            </Card>
-                          </Grid>
-
-                          <Grid item xs={12} md={4}>
-                            <Card 
-                              sx={{ 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                p: 2, 
-                                boxShadow: '0 4px 6px rgba(0,0,0,0.1)', 
-                                height: '100%',
-                                bgcolor: 'rgba(255,255,255,0.8)'
-                              }}
-                            >
-                              <BusinessIcon sx={{ fontSize: 32, color: '#9c27b0', mr: 2 }} />
-                              <Box>
-                                <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 1, textTransform: 'uppercase' }}>
-                                  Department
-                                </Typography>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                                  {department}
-                                </Typography>
-                              </Box>
-                            </Card>
-                          </Grid>
-                        </Grid>
-                      </CardContent>
-                    </Card>
-                  </Box>
-                );
-              })()}
-              
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={4}>
-                  <Card sx={{ height: '100%', p: 2, bgcolor: '#e3f2fd', borderLeft: '4px solid #1976d2' }}>
-                    <CardContent>
-                      <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
-                        Responses
-                      </Typography>
-                      <Typography variant="h4" sx={{ mb: 1, color: '#1976d2', fontWeight: 'bold' }}>
-                        {feedbackStats.totalResponses || 0}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Members who responded to this meeting
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                
-                <Grid item xs={12} md={4}>
-                  <Card sx={{ height: '100%', p: 2, bgcolor: '#e8f5e9', borderLeft: '4px solid #2e7d32' }}>
-                    <CardContent>
-                      <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
-                        Average Rating
-                      </Typography>
-                      <Typography variant="h4" sx={{ mb: 1, color: '#2e7d32', fontWeight: 'bold' }}>
-                        {parseFloat(feedbackStats.overallAverageRating || 0).toFixed(1)}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Overall satisfaction score (out of 5)
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                
-                <Grid item xs={12} md={4}>
-                  <Card sx={{ height: '100%', p: 2, bgcolor: '#fff3e0', borderLeft: '4px solid #ff9800' }}>
-                    <CardContent>
-                      <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
-                        Top Rating
-                      </Typography>
-                      <Typography variant="h4" sx={{ mb: 1, color: '#ff9800', fontWeight: 'bold' }}>
-                        {Object.entries(feedbackStats.overallRatingDistribution || {})
-                          .sort((a, b) => b[1] - a[1])[0]?.[0] || '-'}★
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Most common rating given
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
-            </Paper>
-          )}
-          
-          {/* Dashboard Overview */}
-          {renderDashboardOverview()}
-          
-          {selectedMeetingId && (
-            <>
-              {/* Overall feedback overview */}
-              <FeedbackOverview 
-                feedbackStats={feedbackStats}
-              />
-              
-            
-            </>
-          )}
         </>
+      ) : (
+        <Paper sx={{ p: 6, mb: 4, borderRadius: 2, textAlign: 'center' }}>
+          <Typography variant="h6" gutterBottom>
+            Please select a meeting to view analytics
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Choose a meeting from the selector above to see detailed feedback and analytics
+          </Typography>
+        </Paper>
       )}
     </Box>
   );

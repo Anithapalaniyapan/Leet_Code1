@@ -304,6 +304,101 @@ exports.getAllFeedbackDescending = async (req, res) => {
   }
 };
 
+// Get feedback by meeting
+exports.getFeedbackByMeeting = async (req, res) => {
+  try {
+    const meetingId = req.params.meetingId;
+    
+    if (!meetingId) {
+      return res.status(400).send({ message: 'Meeting ID is required' });
+    }
+    
+    // Check if meeting exists
+    const meeting = await db.meeting.findByPk(meetingId);
+    if (!meeting) {
+      return res.status(404).send({ message: 'Meeting not found' });
+    }
+    
+    // Get feedback for this meeting
+    const feedback = await Feedback.findAll({
+      where: { meetingId: meetingId },
+      include: [
+        {
+          model: Question,
+          as: 'question',
+          attributes: ['id', 'text', 'year'],
+          include: [{
+            model: Department,
+            as: 'department',
+            attributes: ['id', 'name']
+          }]
+        },
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'username', 'fullName', 'year', 'departmentId']
+        }
+      ]
+    });
+
+    res.status(200).send(feedback);
+  } catch (error) {
+    console.error('Error fetching feedback by meeting:', error);
+    res.status(500).send({ message: error.message });
+  }
+};
+
+// Get feedback by meeting ID and user ID
+exports.getFeedbackByMeetingAndUser = async (req, res) => {
+  try {
+    const meetingId = req.params.meetingId;
+    const userId = req.userId; // Get the current user's ID from JWT
+
+    if (!meetingId) {
+      return res.status(400).send({ message: 'Meeting ID is required' });
+    }
+
+    // Check if meeting exists
+    const meeting = await db.meeting.findByPk(meetingId);
+    if (!meeting) {
+      return res.status(404).send({ message: 'Meeting not found' });
+    }
+
+    // Get feedback for this meeting submitted by the current user
+    const feedback = await Feedback.findAll({
+      where: { 
+        meetingId: meetingId,
+        userId: userId 
+      },
+      include: [
+        {
+          model: Question,
+          as: 'question',
+          attributes: ['id', 'text', 'year'],
+          include: [{
+            model: Department,
+            as: 'department',
+            attributes: ['id', 'name']
+          }]
+        }
+      ]
+    });
+
+    if (!feedback || feedback.length === 0) {
+      return res.status(404).send({ 
+        message: 'No feedback found for this meeting and user',
+        meetingId: meetingId,
+        userId: userId
+      });
+    }
+
+    res.status(200).send(feedback);
+  } catch (error) {
+    console.error('Error fetching feedback by meeting and user:', error);
+    res.status(500).send({ message: error.message });
+  }
+};
+
 // Get overall feedback statistics (for academic and executive directors)
 exports.getOverallFeedbackStats = async (req, res) => {
   try {
@@ -525,6 +620,56 @@ exports.generateAllFeedbackExcel = async (req, res) => {
       });
     });
 
+    // Add question analysis section
+    worksheet.addRow([]);
+    worksheet.addRow(['Question Analysis Section']);
+    worksheet.addRow([]);
+    worksheet.addRow(['Question ID', 'Question Text', 'Department', 'Total Responses', 'Average Rating']);
+    
+    // Process feedback data to calculate question stats
+    const questionStats = {};
+    
+    feedback.forEach(item => {
+      if (!item.question || !item.question.id) return;
+      
+      const questionId = item.question.id;
+      
+      // Initialize question stats object if it doesn't exist
+      if (!questionStats[questionId]) {
+        questionStats[questionId] = {
+          id: questionId,
+          text: item.question.text || 'Unknown Question',
+          department: item.question?.department?.name || 'Unknown',
+          responses: 0,
+          totalRating: 0,
+        };
+      }
+      
+      // Update question stats
+      questionStats[questionId].responses += 1;
+      questionStats[questionId].totalRating += item.rating;
+    });
+    
+    // Add question stats to worksheet
+    Object.values(questionStats).forEach(question => {
+      const averageRating = question.responses > 0 
+        ? (question.totalRating / question.responses).toFixed(2) 
+        : 'N/A';
+      
+      worksheet.addRow([
+        question.id,
+        question.text,
+        question.department,
+        question.responses,
+        averageRating
+      ]);
+    });
+
+    // Style the header row
+    worksheet.getRow(1).font = { bold: true };
+    // Also make the question analysis header bold
+    worksheet.getRow(worksheet.rowCount - Object.keys(questionStats).length - 2).font = { bold: true };
+
     // Style the header row
     worksheet.getRow(1).font = { bold: true };
 
@@ -741,9 +886,69 @@ exports.generateOverallStatsExcel = async (req, res) => {
         dept.ratingDistribution['1'] || 0
       ]);
     });
+    
+    // Add question analysis section
+    worksheet.addRow([]);
+    worksheet.addRow(['Question Analysis']);
+    worksheet.addRow(['Question ID', 'Question Text', 'Department', 'Responses', 'Average Rating']);
+    
+    // Query to get all questions with feedback data
+    const questions = await Question.findAll({
+      include: [{
+        model: Feedback,
+        as: 'feedbacks'
+      }, {
+        model: Department,
+        as: 'department',
+        attributes: ['id', 'name']
+      }]
+    });
+    
+    // Process questions to calculate ratings
+    const questionStats = {};
+    
+    for (const question of questions) {
+      if (!question.feedbacks || question.feedbacks.length === 0) continue;
+      
+      const questionId = question.id;
+      
+      // Initialize question stats if not already present
+      if (!questionStats[questionId]) {
+        questionStats[questionId] = {
+          id: questionId,
+          text: question.text || 'Unknown Question',
+          departmentId: question.departmentId,
+          departmentName: question.department ? question.department.name : 'Unknown Department',
+          responses: 0,
+          totalRating: 0,
+          averageRating: 0
+        };
+      }
+      
+      // Process feedback for this question
+      for (const feedback of question.feedbacks) {
+        questionStats[questionId].responses++;
+        questionStats[questionId].totalRating += feedback.rating;
+      }
+    }
+    
+    // Calculate averages and add to worksheet
+    Object.values(questionStats).forEach(question => {
+      if (question.responses > 0) {
+        question.averageRating = (question.totalRating / question.responses).toFixed(2);
+      }
+      
+      worksheet.addRow([
+        question.id,
+        question.text,
+        question.departmentName,
+        question.responses,
+        question.averageRating
+      ]);
+    });
 
     // Style headers
-    [1, 6, 13].forEach(rowIndex => {
+    [1, 6, 13, 20].forEach(rowIndex => {
       worksheet.getRow(rowIndex).font = { bold: true };
     });
 
@@ -1083,6 +1288,77 @@ exports.generateIndividualReportExcel = async (req, res) => {
     worksheet.getCell(`B${currentRow}`).value = overallAverage;
     currentRow++;
     
+    // Add question analysis section
+    currentRow += 2;
+    worksheet.mergeCells(`A${currentRow}:F${currentRow}`);
+    worksheet.getCell(`A${currentRow}`).value = 'QUESTION ANALYSIS';
+    worksheet.getCell(`A${currentRow}`).font = { bold: true, underline: true };
+    worksheet.getCell(`A${currentRow}`).alignment = { horizontal: 'center' };
+    worksheet.getCell(`A${currentRow}`).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'F2F2F2' }
+    };
+    currentRow += 2;
+    
+    // Add headers for question analysis
+    worksheet.getCell(`A${currentRow}`).value = 'Question ID';
+    worksheet.getCell(`B${currentRow}`).value = 'Question Text';
+    worksheet.getCell(`C${currentRow}`).value = 'Responses';
+    worksheet.getCell(`D${currentRow}`).value = 'Average Rating';
+    
+    // Style headers
+    for (let i = 0; i < 4; i++) {
+      worksheet.getCell(`${String.fromCharCode(65 + i)}${currentRow}`).font = { bold: true };
+      worksheet.getCell(`${String.fromCharCode(65 + i)}${currentRow}`).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'F2F2F2' }
+      };
+    }
+    currentRow++;
+    
+    // Process feedback data to get question stats for this role
+    const questionStats = {};
+    
+    Object.values(departmentData).forEach(dept => {
+      Object.values(dept.users).forEach(user => {
+        user.feedback.forEach(feedback => {
+          const questionId = feedback.questionId;
+          
+          // Skip if no question ID
+          if (!questionId) return;
+          
+          // Initialize question stats if not exists
+          if (!questionStats[questionId]) {
+            questionStats[questionId] = {
+              id: questionId,
+              text: feedback.questionText || 'Unknown Question',
+              responses: 0,
+              totalRating: 0
+            };
+          }
+          
+          // Update stats
+          questionStats[questionId].responses++;
+          questionStats[questionId].totalRating += feedback.rating;
+        });
+      });
+    });
+    
+    // Calculate averages and add to worksheet
+    Object.values(questionStats).forEach(question => {
+      const averageRating = question.responses > 0 
+        ? (question.totalRating / question.responses).toFixed(2) 
+        : 'N/A';
+      
+      worksheet.getCell(`A${currentRow}`).value = question.id;
+      worksheet.getCell(`B${currentRow}`).value = question.text;
+      worksheet.getCell(`C${currentRow}`).value = question.responses;
+      worksheet.getCell(`D${currentRow}`).value = averageRating;
+      currentRow++;
+    });
+    
     // Auto-fit columns
     worksheet.columns.forEach(column => {
       column.width = 25;
@@ -1097,101 +1373,6 @@ exports.generateIndividualReportExcel = async (req, res) => {
     res.end();
   } catch (error) {
     console.error('Error generating meeting individual report Excel:', error);
-    res.status(500).send({ message: error.message });
-  }
-};
-
-// Get feedback by meeting
-exports.getFeedbackByMeeting = async (req, res) => {
-  try {
-    const meetingId = req.params.meetingId;
-    
-    if (!meetingId) {
-      return res.status(400).send({ message: 'Meeting ID is required' });
-    }
-    
-    // Check if meeting exists
-    const meeting = await db.meeting.findByPk(meetingId);
-    if (!meeting) {
-      return res.status(404).send({ message: 'Meeting not found' });
-    }
-    
-    // Get feedback for this meeting
-    const feedback = await Feedback.findAll({
-      where: { meetingId: meetingId },
-      include: [
-        {
-          model: Question,
-          as: 'question',
-          attributes: ['id', 'text', 'year'],
-          include: [{
-            model: Department,
-            as: 'department',
-            attributes: ['id', 'name']
-          }]
-        },
-        {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'username', 'fullName', 'year', 'departmentId']
-        }
-      ]
-    });
-
-    res.status(200).send(feedback);
-  } catch (error) {
-    console.error('Error fetching feedback by meeting:', error);
-    res.status(500).send({ message: error.message });
-  }
-};
-
-// Get feedback by meeting ID and user ID
-exports.getFeedbackByMeetingAndUser = async (req, res) => {
-  try {
-    const meetingId = req.params.meetingId;
-    const userId = req.userId; // Get the current user's ID from JWT
-
-    if (!meetingId) {
-      return res.status(400).send({ message: 'Meeting ID is required' });
-    }
-
-    // Check if meeting exists
-    const meeting = await db.meeting.findByPk(meetingId);
-    if (!meeting) {
-      return res.status(404).send({ message: 'Meeting not found' });
-    }
-
-    // Get feedback for this meeting submitted by the current user
-    const feedback = await Feedback.findAll({
-      where: { 
-        meetingId: meetingId,
-        userId: userId 
-      },
-      include: [
-        {
-          model: Question,
-          as: 'question',
-          attributes: ['id', 'text', 'year'],
-          include: [{
-            model: Department,
-            as: 'department',
-            attributes: ['id', 'name']
-          }]
-        }
-      ]
-    });
-
-    if (!feedback || feedback.length === 0) {
-      return res.status(404).send({ 
-        message: 'No feedback found for this meeting and user',
-        meetingId: meetingId,
-        userId: userId
-      });
-    }
-
-    res.status(200).send(feedback);
-  } catch (error) {
-    console.error('Error fetching feedback by meeting and user:', error);
     res.status(500).send({ message: error.message });
   }
 };
@@ -1448,9 +1629,55 @@ exports.generateMeetingAllFeedbackExcel = async (req, res) => {
       });
     });
 
+    // Add question analysis section
+    worksheet.addRow([]);
+    worksheet.addRow(['Question Analysis Section']);
+    worksheet.addRow([]);
+    worksheet.addRow(['Question ID', 'Question Text', 'Department', 'Total Responses', 'Average Rating']);
+    
+    // Process feedback data to calculate question stats
+    const questionStats = {};
+    
+    feedback.forEach(item => {
+      if (!item.question || !item.question.id) return;
+      
+      const questionId = item.question.id;
+      
+      // Initialize question stats object if it doesn't exist
+      if (!questionStats[questionId]) {
+        questionStats[questionId] = {
+          id: questionId,
+          text: item.question.text || 'Unknown Question',
+          department: item.question?.department?.name || 'Unknown',
+          responses: 0,
+          totalRating: 0,
+        };
+      }
+      
+      // Update question stats
+      questionStats[questionId].responses += 1;
+      questionStats[questionId].totalRating += item.rating;
+    });
+    
+    // Add question stats to worksheet
+    Object.values(questionStats).forEach(question => {
+      const averageRating = question.responses > 0 
+        ? (question.totalRating / question.responses).toFixed(2) 
+        : 'N/A';
+      
+      worksheet.addRow([
+        question.id,
+        question.text,
+        question.department,
+        question.responses,
+        averageRating
+      ]);
+    });
+
     // Style the header row
     worksheet.getRow(1).font = { bold: true };
     worksheet.getRow(8).font = { bold: true };
+    worksheet.getRow(worksheet.rowCount - Object.keys(questionStats).length - 2).font = { bold: true };
 
     // Set response headers
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -1960,9 +2187,72 @@ exports.generateMeetingOverallStatsExcel = async (req, res) => {
         dept.ratingDistribution['1'] || 0
       ]);
     });
+    
+    // Add question analysis section
+    worksheet.addRow([]);
+    worksheet.addRow(['Question Analysis']);
+    worksheet.addRow(['Question ID', 'Question Text', 'Department', 'Responses', 'Average Rating']);
+    
+    // Get questions with ratings for this meeting
+    const questionsData = await Feedback.findAll({
+      where: { meetingId: meetingId },
+      include: [
+        {
+          model: Question,
+          as: 'question',
+          attributes: ['id', 'text', 'departmentId'],
+          include: [{
+            model: Department,
+            as: 'department',
+            attributes: ['id', 'name']
+          }]
+        }
+      ]
+    });
+    
+    // Group feedback by question ID
+    const questionStats = {};
+    
+    // Process each feedback entry
+    for (const feedback of questionsData) {
+      if (!feedback || !feedback.question || !feedback.question.id) continue;
+      
+      const questionId = feedback.question.id;
+      
+      // Initialize question in map if not already present
+      if (!questionStats[questionId]) {
+        questionStats[questionId] = {
+          id: questionId,
+          text: feedback.question.text || 'Unknown Question',
+          departmentId: feedback.question.departmentId,
+          departmentName: feedback.question.department ? feedback.question.department.name : 'Unknown Department',
+          responses: 0,
+          totalRating: 0
+        };
+      }
+      
+      // Update totals
+      questionStats[questionId].responses++;
+      questionStats[questionId].totalRating += feedback.rating;
+    }
+    
+    // Calculate averages and add to worksheet
+    Object.values(questionStats).forEach(question => {
+      if (question.responses > 0) {
+        question.averageRating = (question.totalRating / question.responses).toFixed(2);
+      }
+      
+      worksheet.addRow([
+        question.id,
+        question.text,
+        question.departmentName,
+        question.responses,
+        question.averageRating || 'N/A'
+      ]);
+    });
 
     // Style headers
-    [1, 8, 11, 12, 17, 18, 24, 25].forEach(rowIndex => {
+    [1, 8, 11, 12, 17, 18, 24, 25, 31, 32].forEach(rowIndex => {
       if (worksheet.getRow(rowIndex).values && worksheet.getRow(rowIndex).values.length > 0) {
         worksheet.getRow(rowIndex).font = { bold: true };
       }
@@ -1981,7 +2271,7 @@ exports.generateMeetingOverallStatsExcel = async (req, res) => {
   }
 };
 
-// Generate individual report for specific role type for a specific meeting
+// Add missing function for generateMeetingIndividualReportExcel
 exports.generateMeetingIndividualReportExcel = async (req, res) => {
   try {
     // Check if user has permission
@@ -2317,6 +2607,77 @@ exports.generateMeetingIndividualReportExcel = async (req, res) => {
     worksheet.getCell(`B${currentRow}`).value = overallAverage;
     currentRow++;
     
+    // Add question analysis section
+    currentRow += 2;
+    worksheet.mergeCells(`A${currentRow}:F${currentRow}`);
+    worksheet.getCell(`A${currentRow}`).value = 'QUESTION ANALYSIS';
+    worksheet.getCell(`A${currentRow}`).font = { bold: true, underline: true };
+    worksheet.getCell(`A${currentRow}`).alignment = { horizontal: 'center' };
+    worksheet.getCell(`A${currentRow}`).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'F2F2F2' }
+    };
+    currentRow += 2;
+    
+    // Add headers for question analysis
+    worksheet.getCell(`A${currentRow}`).value = 'Question ID';
+    worksheet.getCell(`B${currentRow}`).value = 'Question Text';
+    worksheet.getCell(`C${currentRow}`).value = 'Responses';
+    worksheet.getCell(`D${currentRow}`).value = 'Average Rating';
+    
+    // Style headers
+    for (let i = 0; i < 4; i++) {
+      worksheet.getCell(`${String.fromCharCode(65 + i)}${currentRow}`).font = { bold: true };
+      worksheet.getCell(`${String.fromCharCode(65 + i)}${currentRow}`).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'F2F2F2' }
+      };
+    }
+    currentRow++;
+    
+    // Process feedback data to get question stats for this role
+    const questionStats = {};
+    
+    Object.values(departmentData).forEach(dept => {
+      Object.values(dept.users).forEach(user => {
+        user.feedback.forEach(feedback => {
+          const questionId = feedback.questionId;
+          
+          // Skip if no question ID
+          if (!questionId) return;
+          
+          // Initialize question stats if not exists
+          if (!questionStats[questionId]) {
+            questionStats[questionId] = {
+              id: questionId,
+              text: feedback.questionText || 'Unknown Question',
+              responses: 0,
+              totalRating: 0
+            };
+          }
+          
+          // Update stats
+          questionStats[questionId].responses++;
+          questionStats[questionId].totalRating += feedback.rating;
+        });
+      });
+    });
+    
+    // Calculate averages and add to worksheet
+    Object.values(questionStats).forEach(question => {
+      const averageRating = question.responses > 0 
+        ? (question.totalRating / question.responses).toFixed(2) 
+        : 'N/A';
+      
+      worksheet.getCell(`A${currentRow}`).value = question.id;
+      worksheet.getCell(`B${currentRow}`).value = question.text;
+      worksheet.getCell(`C${currentRow}`).value = question.responses;
+      worksheet.getCell(`D${currentRow}`).value = averageRating;
+      currentRow++;
+    });
+    
     // Auto-fit columns
     worksheet.columns.forEach(column => {
       column.width = 25;
@@ -2609,7 +2970,7 @@ exports.getMeetingDetailedStats = async (req, res) => {
       // Overall stats
       totalResponses++;
       totalRating += feedback.rating;
-      overallRatingDistribution[feedback.rating] = (overallRatingDistribution[feedback.rating] || 0) + 1;
+      overallRatingDistribution[feedback.rating]++;
       
       // Process role-based stats
       const user = feedback.user;
@@ -2633,37 +2994,10 @@ exports.getMeetingDetailedStats = async (req, res) => {
         }
       }
       
-      // Update role stats if it's student or staff
-      if (roleCategory === 'student' || roleCategory === 'staff') {
-        roleStats[roleCategory].count++;
-        roleStats[roleCategory].totalRating += feedback.rating;
-        roleStats[roleCategory].ratingDistribution[feedback.rating]++;
-      }
-      
-      // Process department stats
-      const departmentId = feedback.question?.departmentId;
-      if (departmentId) {
-        let deptStat = departmentStats.find(d => d.departmentId === departmentId);
-        
-        if (!deptStat) {
-          const departmentName = feedback.question?.department?.name || 
-                              departments.find(d => d.id === departmentId)?.name || 
-                              'Unknown Department';
-          
-          deptStat = {
-            departmentId,
-            departmentName,
-            responses: 0,
-            totalRating: 0,
-            ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
-          };
-          departmentStats.push(deptStat);
-        }
-        
-        deptStat.responses++;
-        deptStat.totalRating += feedback.rating;
-        deptStat.ratingDistribution[feedback.rating]++;
-      }
+      // Update role statistics
+      roleStats[roleCategory].count++;
+      roleStats[roleCategory].totalRating += feedback.rating;
+      roleStats[roleCategory].ratingDistribution[feedback.rating]++;
     });
     
     // Calculate averages
