@@ -2995,9 +2995,9 @@ exports.getMeetingDetailedStats = async (req, res) => {
       }
       
       // Update role statistics
-      roleStats[roleCategory].count++;
-      roleStats[roleCategory].totalRating += feedback.rating;
-      roleStats[roleCategory].ratingDistribution[feedback.rating]++;
+        roleStats[roleCategory].count++;
+        roleStats[roleCategory].totalRating += feedback.rating;
+        roleStats[roleCategory].ratingDistribution[feedback.rating]++;
     });
     
     // Calculate averages

@@ -292,16 +292,16 @@ const Login = ({ setIsAuthenticated, setUserRole }) => {
             src={logoImage} 
             alt="Sri Shanmugha Logo" 
             sx={{ 
-              width: '35px',
-              height: '35px',
+              width: '80px',
+              height: '80px',
               mr: 1.5
             }}
           />
           <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#1A2137', lineHeight: 1.2, fontSize: '1rem' }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#1A2137', lineHeight: 1.2, fontSize: '1.2rem' }}>
               SRI SHANMUGHA
             </Typography>
-            <Typography variant="caption" sx={{ color: '#1A2137', lineHeight: 1.2, fontSize: '0.65rem', letterSpacing: '0.5px' }}>
+            <Typography variant="caption" sx={{ color: '#1A2137', lineHeight: 1.2, fontSize: '0.80rem', letterSpacing: '0.5px' }}>
               EDUCATIONAL INSTITUTIONS
             </Typography>
           </Box>

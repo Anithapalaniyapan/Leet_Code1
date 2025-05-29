@@ -464,7 +464,7 @@ const AnalyticsTap = () => {
             justifyContent: 'center',
             alignItems: 'center',
             zIndex: 10
-          }}>
+            }}>
             <CircularProgress />
           </Box>
         </Fade>
@@ -472,26 +472,26 @@ const AnalyticsTap = () => {
       
       {/* Meeting Selector Section */}
       <Paper sx={{ p: 3, mb: 4, borderRadius: 2, boxShadow: 2 }}>
-        <Typography variant="h6" gutterBottom sx={{ mb: 3, color: '#1A2137', fontWeight: 'bold' }}>
+            <Typography variant="h6" gutterBottom sx={{ mb: 3, color: '#1A2137', fontWeight: 'bold' }}>
           Select Meeting for Analytics
-        </Typography>
-        <MeetingSelector 
-          meetings={meetings}
-          selectedMeetingId={selectedMeetingId}
-          onMeetingChange={setSelectedMeetingId}
-          loading={meetingsLoading}
-        />
-      </Paper>
-      
-      {/* Dashboard Overview */}
-      {renderDashboardOverview()}
-      
+            </Typography>
+            <MeetingSelector
+              meetings={meetings}
+              selectedMeetingId={selectedMeetingId}
+              onMeetingChange={setSelectedMeetingId}
+              loading={meetingsLoading}
+            />
+          </Paper>
+          
+          {/* Dashboard Overview */}
+          {renderDashboardOverview()}
+          
       {/* Only show analytics if a meeting is selected */}
       {selectedMeetingId ? (
-        <>
+            <>
           {/* Feedback Overview */}
-          <FeedbackOverview 
-            feedbackStats={feedbackStats}
+              <FeedbackOverview 
+                feedbackStats={feedbackStats}
             previousMeetingStats={previousMeetingStats}
           />
           
@@ -502,9 +502,9 @@ const AnalyticsTap = () => {
               allQuestions={allQuestions}
             />
           </Paper>
-          
-
-        </>
+              
+            
+            </>
       ) : (
         <Paper sx={{ p: 6, mb: 4, borderRadius: 2, textAlign: 'center' }}>
           <Typography variant="h6" gutterBottom>

@@ -254,7 +254,11 @@ const MeetingScheduleSection = ({
               fontStyle: 'italic',
               mt: 0.5 
             }}>
-              {meeting.department ? `${meeting.department}` : ''}
+              {meeting.department
+                ? (typeof meeting.department === 'object' && meeting.department !== null
+                    ? (meeting.department.name || '')
+                    : meeting.department)
+                : ''}
               {meeting.department && meeting.year ? ' • ' : ''}
               {meeting.year ? `Year ${meeting.year}` : ''}
             </Typography>
