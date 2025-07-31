@@ -18,6 +18,7 @@ const App = () => {
   const { isAuthenticated: reduxIsAuthenticated, userRole: reduxUserRole } = useSelector(state => state.auth);
   const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('isAuthenticated') === 'true');
   const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || '');
+// restoring frontend
 
   // Immediately synchronize Redux auth state with localStorage
   useEffect(() => {
