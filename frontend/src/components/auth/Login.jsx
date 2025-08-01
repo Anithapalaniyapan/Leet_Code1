@@ -653,6 +653,28 @@ const Login = ({ setIsAuthenticated, setUserRole }) => {
               ) : 'Login'}
             </Button>
             
+            {/* Register link */}
+            <Box sx={{ mt: 2, textAlign: 'center' }}>
+              <Typography variant="body2" sx={{ color: '#666' }}>
+                Don't have an account?{' '}
+                <Link 
+                  component="button"
+                  variant="body2"
+                  onClick={() => navigate('/register')}
+                  sx={{ 
+                    color: '#1A2137', 
+                    textDecoration: 'none', 
+                    fontWeight: 'medium',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      textDecoration: 'underline'
+                    }
+                  }}
+                >
+                  Register
+                </Link>
+              </Typography>
+            </Box>
             
           </Box>
         </Paper>

@@ -6,6 +6,7 @@ import CssBaseline from '@mui/material/CssBaseline'
 import theme from './theme'
 import './App.css'
 import Login from './components/auth/Login'
+import Register from './components/auth/Register'
 import StudentDashboard from './components/dashboards/StudentDashboard'
 import StaffDashboard from './components/dashboards/StaffDashboard'
 import AcademicDirectorDashboard from './components/dashboards/AcademicDirectorDashboard'
@@ -19,7 +20,6 @@ const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('isAuthenticated') === 'true');
   const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || '');
 
-//frontend
   // Immediately synchronize Redux auth state with localStorage
   useEffect(() => {
     // Synchronize Redux auth state with localStorage on mount
@@ -138,6 +138,7 @@ const App = () => {
         <Routes>
           <Route path="/" element={<Navigate to="/login" />} />
           <Route path="/login" element={<Login setIsAuthenticated={setIsAuthenticated} setUserRole={setUserRole} />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/student-dashboard" element={<ProtectedRoute element={<StudentDashboard />} allowedRole="student" />} />
           <Route path="/staff-dashboard" element={<ProtectedRoute element={<StaffDashboard />} allowedRole="STAFF" />} />
           <Route path="/academic-director-dashboard" element={<ProtectedRoute element={<AcademicDirectorDashboard />} allowedRole="ACADEMIC_DIRECTOR" />} />
